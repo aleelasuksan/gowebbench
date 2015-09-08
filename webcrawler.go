@@ -8,12 +8,12 @@ import "golang.org/x/net/html"
 import "io"
 import "flag"
 import "os"
-import "strconv"
 import "regexp"
 import "log"
 import "os/exec"
 import "sync"
 import "bytes"
+import "runtime"
 
 var visited = make(map[string]bool)
 
@@ -22,25 +22,18 @@ var wg sync.WaitGroup
 var f *os.File
 
 func main() {
+  uriPtr := flag.String("uri", "http://www.google.com/", "uri to start crawling")
+  depthPtr := flag.Int("depth", 1, "depth to crawl")
+  loadPtr := flag.Bool("load", false, "do load testing")
+  userPtr := flag.Int("user", 100, "number of concurrent users")
+  transPtr := flag.Int("trans", 1, "number of transaction for each user")
   flag.Parse()
-  args := flag.Args()
-  fmt.Println(args)
-  if len(args) < 1 {
-    fmt.Println("No URI given for crawling.")
-    os.Exit(1)
-  } else if len(args) < 2 {
-    fmt.Println("No depth given for crawling.")
-    os.Exit(1)
-  }
 
-  uri := args[0]
-  depth, err := strconv.Atoi(args[1])
+  runtime.GOMAXPROCS(runtime.NumCPU())
 
-  if err != nil {
-    fmt.Println("Second argument is not a number.")
-    log.Printf("%T %+v\n", err, err)
-    os.Exit(1)
-  }
+  uri := *uriPtr
+  depth := *depthPtr
+  load := *loadPtr
 
   if depth < 1 {
     fmt.Println("Depth is less than 1, Please specify depth equals 1 or greater.")
@@ -48,6 +41,7 @@ func main() {
   }
 
   filename := "D:\\src\\crawling.log"
+  var err error
   f, err = os.OpenFile(filename, os.O_WRONLY | os.O_APPEND | os.O_CREATE, 0666)
   if err != nil {
     log.Printf("%T %+v\n", err, err)
@@ -60,30 +54,11 @@ func main() {
   writeLog("Done Crawling!\r\n\r\n")
   fmt.Println("Done Crawling!\n")
   f.Close()
-  if len(args) > 2 {
-    if args[2] == "-load" {
-      if len(args) < 4 {
-        fmt.Println("No amount of concurrent user given.")
-        os.Exit(1)
-      } else if len(args) < 5 {
-        fmt.Println("No amount of transaction per user given.")
-        os.Exit(1)
-      }
-
+  if load {
       fmt.Println("Start Load Testing...")
 
-      usr, err := strconv.Atoi(args[3])
-      if err != nil {
-        fmt.Println("Fourth argument is not a number.")
-        log.Printf("%T %+v\n", err, err)
-        os.Exit(1)
-      }
-      trans, err := strconv.Atoi(args[4])
-      if err != nil {
-        fmt.Println("Fifth argument is not a number.")
-        log.Printf("%T %+v\n", err, err)
-        os.Exit(1)
-      }
+      usr := *userPtr
+      trans := *transPtr
 
       path := "D:\\src\\WTesting\\loadtest.go"
       for key, _ := range visited {
@@ -93,9 +68,7 @@ func main() {
         cmd.Stderr = os.Stderr
         cmd.Run()
       }
-
       fmt.Println("Done Load Testing!")
-    }
   }
 }
 

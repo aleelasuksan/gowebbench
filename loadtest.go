@@ -4,7 +4,6 @@ import "fmt"
 import "flag"
 import "os"
 import "net/http"
-import "strconv"
 import "time"
 // import "runtime/debug"
 import "runtime"
@@ -22,34 +21,31 @@ type Response_Stat struct {
 var f *os.File
 
 func main() {
+  uriPtr := flag.String("uri", "http://www.google.com/", "target uri for testing")
+  userPtr := flag.Int("user", 100, "number of concurrent user")
+  transPtr := flag.Int("trans", 1, "number of transaction for user to do request")
   flag.Parse()
-  args := flag.Args()
-  if len(args) < 1 {
-    fmt.Println("Please specify uri")
-    os.Exit(1)
-  } else if len(args) < 2 {
-    fmt.Println("Please specify number of concurrent users")
-    os.Exit(1)
-  } else if len(args) < 3 {
-    fmt.Println("Please specify amount of transactions")
-  }
+  // args := flag.Args()
+  // if len(args) < 1 {
+  //   fmt.Println("Please specify uri")
+  //   os.Exit(1)
+  // } else if len(args) < 2 {
+  //   fmt.Println("Please specify number of concurrent users")
+  //   os.Exit(1)
+  // } else if len(args) < 3 {
+  //   fmt.Println("Please specify amount of transactions")
+  // }
 
   // debug.SetGCPercent(200)
   runtime.GOMAXPROCS(runtime.NumCPU())
   // runtime.GOMAXPROCS(1)
-  uri := args[0]
-  user, err := strconv.Atoi(args[1])
-  if err != nil {
-    log.Println(err)
-    os.Exit(1)
-  }
-  trans, err := strconv.Atoi(args[2])
-  if err != nil {
-    log.Println(err)
-    os.Exit(1)
-  }
+  uri := *uriPtr
+  user := *userPtr
+  trans := *transPtr
 
   filename := "D:\\src\\loadtest.log"
+
+  var err error
   f, err = os.OpenFile(filename, os.O_WRONLY | os.O_APPEND | os.O_CREATE, 0666)
   if err != nil {
     log.Printf("%T %+v\n", err, err)
@@ -85,7 +81,7 @@ func main() {
     case s := <-result:
 
       fmt.Printf("%6d : Status:%s ,Response time:%.4fsec ,Bytes:%v\n", count, s.status, s.response_time.Seconds(), s.amount_of_data)
-      writeLog(fmt.Sprintf("%6d : Status:%s ,Response time:%.4fsec ,Bytes:%v\n", count, s.status, s.response_time.Seconds(), s.amount_of_data))
+      writeLog(fmt.Sprintf("%6d : Status:%s ,Response time:%.4fsec ,Bytes:%v\r\n", count, s.status, s.response_time.Seconds(), s.amount_of_data))
 
       r, err := regexp.Compile("100|101|102|200|201|202|203|204|205|206|207|208|226|300|301|302|303|304|305|306|307|308")
       if err != nil {
