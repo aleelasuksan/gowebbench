@@ -24,17 +24,8 @@ func main() {
   uriPtr := flag.String("uri", "http://www.google.com/", "target uri for testing")
   userPtr := flag.Int("user", 100, "number of concurrent user")
   transPtr := flag.Int("trans", 1, "number of transaction for user to do request")
+  filePtr := flag.String("output", "load.log", "path or filename for text output file")
   flag.Parse()
-  // args := flag.Args()
-  // if len(args) < 1 {
-  //   fmt.Println("Please specify uri")
-  //   os.Exit(1)
-  // } else if len(args) < 2 {
-  //   fmt.Println("Please specify number of concurrent users")
-  //   os.Exit(1)
-  // } else if len(args) < 3 {
-  //   fmt.Println("Please specify amount of transactions")
-  // }
 
   // debug.SetGCPercent(200)
   runtime.GOMAXPROCS(runtime.NumCPU())
@@ -43,7 +34,7 @@ func main() {
   user := *userPtr
   trans := *transPtr
 
-  filename := "D:\\src\\loadtest.log"
+  filename := *filePtr
 
   var err error
   f, err = os.OpenFile(filename, os.O_WRONLY | os.O_APPEND | os.O_CREATE, 0666)

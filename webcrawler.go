@@ -27,6 +27,7 @@ func main() {
   loadPtr := flag.Bool("load", false, "do load testing")
   userPtr := flag.Int("user", 100, "number of concurrent users")
   transPtr := flag.Int("trans", 1, "number of transaction for each user")
+  filePtr := flag.String("output", "crawling.log", "path or filename for text output file")
   flag.Parse()
 
   runtime.GOMAXPROCS(runtime.NumCPU())
@@ -40,7 +41,7 @@ func main() {
     os.Exit(1)
   }
 
-  filename := "D:\\src\\crawling.log"
+  filename := *filePtr
   var err error
   f, err = os.OpenFile(filename, os.O_WRONLY | os.O_APPEND | os.O_CREATE, 0666)
   if err != nil {
@@ -60,10 +61,11 @@ func main() {
       usr := *userPtr
       trans := *transPtr
 
-      path := "D:\\src\\WTesting\\loadtest.go"
+      // path := "D:\\src\\WTesting\\loadtest.go"
+      path := "loadtest.go"
       for key, _ := range visited {
         fmt.Println()
-        cmd := exec.Command("cmd", fmt.Sprintf("/C go run %s %s %d %d", path, key, usr, trans))
+        cmd := exec.Command("cmd", fmt.Sprintf("/C go run %s -uri=%s -user=%d -trans=%d", path, key, usr, trans))
         cmd.Stdout = os.Stdout
         cmd.Stderr = os.Stderr
         cmd.Run()
