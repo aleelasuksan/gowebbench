@@ -29,7 +29,6 @@ func main() {
 
   // debug.SetGCPercent(200)
   runtime.GOMAXPROCS(runtime.NumCPU())
-  // runtime.GOMAXPROCS(1)
   uri := *uriPtr
   user := *userPtr
   trans := *transPtr
@@ -134,6 +133,8 @@ func main() {
 
   fmt.Println("Average response time:", sum_res / float64(success), "s")
   writeLog(fmt.Sprintf("Average response time: %v sec\r\n", sum_res / float64(success)))
+
+  f.Close()
 }
 
 func sendRequest(uri string, n int, result chan Response_Stat, transport *http.Transport) {
@@ -151,10 +152,8 @@ func sendRequest(uri string, n int, result chan Response_Stat, transport *http.T
       end := time.Now()
       response_time := end.Sub(start)
       if err != nil {
-        fmt.Println("Panic response")
-        writeLog("Panic response")
-        log.Printf("%T %+v\n", err, err)
-        writeLog(fmt.Sprintf("%T %+v\r\n", err, err))
+        log.Printf("Panic Response %T %+v\n", err, err)
+        writeLog(fmt.Sprintf("Panic Response %T %+v\r\n", err, err))
         result <- Response_Stat{ "Error from Response", response_time, 0 }
       } else {
         l := int(res.ContentLength)
@@ -176,4 +175,5 @@ func writeLog(message string) {
   if err != nil {
     return
   }
+  f.Sync()
 }
