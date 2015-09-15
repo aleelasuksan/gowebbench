@@ -16,6 +16,7 @@ import "bytes"
 import "runtime"
 import "time"
 import "strings"
+import "io/ioutil"
 
 var visited = make(map[string]bool)
 
@@ -23,174 +24,171 @@ var wg sync.WaitGroup
 
 var f *os.File
 
-var jobQueue chan bool
-
-type Worker struct {
-  WorkerPool  chan chan bool
-}
-
 func main() {
   uriPtr := flag.String("uri", "http://www.google.com/", "uri to start crawling")
   depthPtr := flag.Int("depth", 1, "depth to crawl")
   loadPtr := flag.Bool("load", false, "do load testing")
   userPtr := flag.Int("user", 100, "number of concurrent users")
   transPtr := flag.Int("trans", 1, "number of transaction for each user")
-  filePtr := flag.String("output", "crawling.log", "path or filename for text output file")
+  filePtr := flag.String("output", "crawl_result.log", "path or filename for text output file")
   flag.Parse()
 
   runtime.GOMAXPROCS(runtime.NumCPU())
 
   address := parseURIwithoutFragment(*uriPtr)
+  if address == nil {
+    fmt.Println("Given URI is invalid.")
+    os.Exit(1)
+  }
   base, _ := regexp.Compile(strings.Replace(address.Host, ".", "\\.", -1))
   uri := address.String()
   depth := *depthPtr
   load := *loadPtr
+  r, _ := regexp.Compile("html")
 
-  if depth < 1 {
-    fmt.Println("Depth is less than 1, Please specify depth equals 1 or greater.")
+  if depth < 0 {
+    fmt.Println("Depth is less than 0, Please specify depth equals 0 or greater.")
     os.Exit(1)
   }
 
-  filename := *filePtr
+  filename := "crawling.log"
   var err error
   f, err = os.OpenFile(filename, os.O_WRONLY | os.O_APPEND | os.O_CREATE, 0666)
   if err != nil {
     log.Printf("%T %+v\n", err, err)
     os.Exit(1)
   }
+  transport := &http.Transport{
+    TLSClientConfig: &tls.Config{
+      InsecureSkipVerify: true,
+    },
+  }
+  client := &http.Client {
+    Transport: transport,
+  }
+  visited[uri] = true
 
   wg.Add(1)
-  go fetchURI(uri, depth, base)
+  go fetchURI(uri, depth, base, r, client)
   time.Sleep(1 * time.Second)
   wg.Wait()
   writeLog("Done Crawling!\r\n\r\n")
   fmt.Println("Done Crawling!\n")
   f.Close()
 
-  filename = "crawling_result.log"
-  f, err = os.OpenFile(filename, os.O_WRONLY | os.O_APPEND | os.O_CREATE, 0666)
+  filename = *filePtr
+  // // os.O_APPEND to append result file
+  f, err = os.OpenFile(filename, os.O_WRONLY | os.O_CREATE, 0666)
   if err != nil {
     log.Printf("%T %+v\n", err, err)
     os.Exit(1)
   }
   count := 0
 
-  fmt.Println("Result")
-  writeLog("Result\r\n")
+  fmt.Printf("Write Result to file %v ...\n", filename)
 
   for key, value := range visited {
     if value {
       count++
-      fmt.Printf("%4v: %v\n", count, key)
-      writeLog(fmt.Sprintf("%4v: %v\r\n", count, key))
+      // fmt.Println(key)
+      writeLog(fmt.Sprintf("%v\r\n", key))
     }
   }
-  writeLog(fmt.Sprintf("%v uri found.", count))
+  // writeLog(fmt.Sprintf("%v uri found.\r\n\r\n", count))
   fmt.Printf("%v uri found.\n", count)
 
   if load {
-      fmt.Println("Start Load Testing...")
-
-      usr := *userPtr
-      trans := *transPtr
-      path := "loadtest.go"
-      start := time.Now()
-      for key, value := range visited {
-        if value {
-          fmt.Println()
-          cmd := exec.Command("cmd", fmt.Sprintf("/C go run %s -uri=%s -user=%d -trans=%d", path, key, usr, trans))
-          cmd.Stdout = os.Stdout
-          cmd.Stderr = os.Stderr
-          cmd.Run()
-        }
-      }
-      end := time.Now()
-      fmt.Println("Done Load Testing!")
-      fmt.Printf("Total time: %v\n", end.Sub(start))
-      fmt.Printf("%v uri.\n", len(visited))
+    loadtest(*userPtr, *transPtr, filename)
   }
 }
 
-func fetchURI(uri string, depth int, base *regexp.Regexp) {
+func fetchURI(uri string, depth int, base *regexp.Regexp, reghtml *regexp.Regexp, client *http.Client) {
+
   defer wg.Done()
-  address := parseURIwithoutFragment(uri)
-
-  // if request uri host/domain doesn't match base host then ignore this uri
-  if address == nil || !base.MatchString(address.Host) {
-    return
-  }
-
-  target := address.String()
-  if visited[target] {
-    return
-  }
-
-  fmt.Println("fetching: ", target, depth)
-  writeLog(fmt.Sprintf("fetching: %v %v\r\n", target, depth))
-  visited[target] = true
-  transport := &http.Transport{
-    TLSClientConfig: &tls.Config{
-      InsecureSkipVerify: true,
-    },
-  }
-  if depth == 1 {
-    req, err := http.NewRequest( "HEAD", target, nil)
+  // fmt.Println("fetching: ", uri, depth)
+  // writeLog(fmt.Sprintf("fetching: %v %v %v\r\n", uri, depth))
+  if depth == 0 {
+    // req, err := http.NewRequest( "HEAD", uri, nil)
+    // if err != nil {
+    //   return
+    // }
+    // res, err := transport.RoundTrip(req)
+    res, err := client.Head(uri)
     if err != nil {
-      log.Printf("%T %+v\n", err, err)
-      writeLog(fmt.Sprintf("%T %+v\r\n", err, err))
-      return
-    }
-    res, err := transport.RoundTrip(req)
-    if err != nil {
-      log.Printf("Panic Head %v %v\n%T %+v\n", target, depth, err, err)
-      writeLog(fmt.Sprintf("Panic Head %v %v\r\n%T %+v\r\n", target, depth, err, err))
+      log.Printf("Panic Head %v %v\n%T %+v\n", uri, depth, err, err)
+      writeLog(fmt.Sprintf("Panic Head %v %v\n%T %+v\r\n", uri, depth, err, err))
       return
     }
 
     defer res.Body.Close()
 
-    fmt.Printf("fetched: %v %v %v\n",target, depth, res.Header.Get("Content-Type"))
+    fmt.Printf("fetched: %v %v\n", uri, depth)
 
-    r, _ := regexp.Compile("html")
-    if !r.MatchString(res.Header.Get("Content-Type")) {
-      visited[target] = false
+    if !reghtml.MatchString(res.Header.Get("Content-Type")) {
+      visited[uri] = false
     }
     return
-  }
+  } else {
+    // req, err := http.NewRequest( "GET", uri, nil )
+    // if err != nil {
+    //   return
+    // }
+    // res, err := transport.RoundTrip(req)
+    res, err := client.Get(uri)
+    if err != nil {
+      log.Printf("Panic Get %v %v\n%T %+v\n", uri, depth, err, err)
+      writeLog(fmt.Sprintf("Panic Get %v %v\r\n%T %+v\r\n", uri, depth, err, err))
+      return
+    }
+    defer res.Body.Close()
+    fmt.Printf("fetched: %v %v\n", uri, depth)
 
-  req, err := http.NewRequest( "GET", target, nil )
-  if err != nil {
-    log.Printf("%T %+v\n", err, err)
-    writeLog(fmt.Sprintf("%T %+v\r\n", err, err))
-    return
-  }
-  res, err := transport.RoundTrip(req)
-  if err != nil {
-    log.Printf("Panic Get %v %v\n%T %+v\n", target, depth, err, err)
-    writeLog(fmt.Sprintf("Panic Get %v %v\r\n%T %+v\r\n", target, depth, err, err))
-    return
-  }
-  defer res.Body.Close()
-  fmt.Printf("fetched: %v %v %v\n", target, depth, res.Header.Get("Content-Type"))
-  // following regexp check for content-type if it is not html then ignore to use in load testing
-  r, _ := regexp.Compile("html")
-  if !r.MatchString(res.Header.Get("Content-Type")) {
-    visited[target] = false
-    return
-  }
-  links := fetchHyperLink(res.Body)
-  for _, link := range links {
-    absolutePath := normalizeURL(link, target)
-    if absolutePath != "" {
-      if !visited[absolutePath] {
-        wg.Add(1)
-        go fetchURI(absolutePath, depth-1, base)
+    if !reghtml.MatchString(res.Header.Get("Content-Type")) {
+      visited[uri] = false
+      return
+    }
+    links := fetchHyperLink(res.Body)
+    for _, link := range links {
+      absolutePath := normalizeURL(link, uri)
+      if absolutePath != "" {
+
+        address := parseURIwithoutFragment(absolutePath)
+
+        // if request uri host/domain doesn't match base host then ignore this uri
+        if address == nil || !base.MatchString(address.Host) {
+          continue
+        }
+
+        target := address.String()
+        if !visited[target] {
+          visited[target] = true
+          wg.Add(1)
+          go fetchURI(target, depth-1, base, reghtml, client)
+        }
       }
     }
   }
 }
 
+func loadtest(user int, trans int, filename string) {
+  fmt.Println("Start Load Testing...")
+  path := "loadtest.go"
+  start := time.Now()
+
+  fmt.Println()
+  cmd := exec.Command("cmd", fmt.Sprintf("/C go run %s -input=%s -user=%d -trans=%d", path, filename, user, trans))
+  cmd.Stdout = os.Stdout
+  cmd.Stderr = os.Stderr
+  cmd.Run()
+
+  end := time.Now()
+  fmt.Println("Done Load Testing!")
+  fmt.Printf("Total time: %v\n", end.Sub(start))
+  fmt.Printf("%v uri.\n", len(visited))
+}
+
 func fetchHyperLink(httpBody io.Reader) []string {
+  defer ioutil.ReadAll(httpBody)
   links := make ([]string, 0)
   body := html.NewTokenizer(httpBody)
   for {
@@ -212,12 +210,10 @@ func fetchHyperLink(httpBody io.Reader) []string {
 func normalizeURL(href, base string) string {
   uri, err := url.Parse(href)
   if err != nil {
-    panic(err)
     return ""
   }
   baseURL, err := url.Parse(base)
   if err != nil {
-    panic(err)
     return ""
   }
   uri = baseURL.ResolveReference(uri)
@@ -243,11 +239,12 @@ func writeLog(message string) {
 func parseURIwithoutFragment(s string) *url.URL{
   address, err := url.Parse(s)
   if err != nil {
-    log.Printf("%T %+v\n", err, err)
-    writeLog(fmt.Sprintf("%T %+v\r\n", err, err))
     return nil
   }
-
+  if len(address.Path) == 0 {
+    address.Path = "/"
+  }
   address.Fragment = ""
+  address.RawQuery = ""
   return address
 }

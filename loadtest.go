@@ -11,6 +11,8 @@ import "io/ioutil"
 import "log"
 import "regexp"
 import "bytes"
+import "io"
+import "bufio"
 
 type Response_Stat struct {
   status string
@@ -25,6 +27,7 @@ func main() {
   userPtr := flag.Int("user", 100, "number of concurrent user")
   transPtr := flag.Int("trans", 1, "number of transaction for user to do request")
   filePtr := flag.String("output", "load.log", "path or filename for text output file")
+  inputListPtr := flag.String("input", "", "path or filename for input file which use to read an address for load testing")
   flag.Parse()
 
   // debug.SetGCPercent(200)
@@ -32,7 +35,7 @@ func main() {
   uri := *uriPtr
   user := *userPtr
   trans := *transPtr
-
+  input := *inputListPtr
   filename := *filePtr
 
   var err error
@@ -40,17 +43,51 @@ func main() {
   if err != nil {
     log.Printf("%T %+v\n", err, err)
   }
+  defer f.Close()
 
   result := make(chan Response_Stat, user)
-  transport := http.Transport{
+  defer close(result)
+  transport := &http.Transport{
     DisableKeepAlives: false,
     MaxIdleConnsPerHost: user,
     ResponseHeaderTimeout: 60 * time.Second,
-    }
+  }
 
+  client := &http.Client{
+    Transport: transport,
+  }
+
+  if input == "" {
+    loadtest(uri, user, trans, result, client)
+  } else {
+    infile, err := os.Open(input)
+    if err != nil {
+      log.Printf("%T %+v\n", err, err)
+      return
+    }
+    defer infile.Close()
+    r := bufio.NewReader(infile)
+    err = nil
+    start := time.Now()
+    for err != io.EOF {
+      var s string
+      s, err = readLine(r)
+      if err == nil && len(s) > 0 {
+        loadtest(s, user, trans, result, client)
+        fmt.Println()
+        writeLog("\r\n")
+      }
+    }
+    stop := time.Now()
+    fmt.Printf("Total time: %v\n", stop.Sub(start))
+    fmt.Println("DONE")
+  }
+}
+
+func loadtest(uri string, user int, trans int, result chan Response_Stat, client *http.Client) {
   start := time.Now()
   for i := 0 ; i < user ; i++ {
-    go sendRequest(uri, trans, result, &transport)
+    go sendRequest(uri, trans, result, client)
   }
 
   fmt.Printf("Start test %s...\n", uri)
@@ -66,6 +103,11 @@ func main() {
   sum_res = 0
   total_data := 0
   timeout := false
+  r, err := regexp.Compile("100|101|102|200|201|202|203|204|205|206|207|208|226|300|301|302|303|304|305|306|307|308")
+  if err != nil {
+    log.Printf("%T %+v\n", err, err)
+    writeLog(fmt.Sprintf("%T %+v\r\n", err, err))
+  }
   for ; count != user * trans && !timeout ; {
     select {
     case s := <-result:
@@ -73,30 +115,23 @@ func main() {
       fmt.Printf("%6d : Status:%s ,Response time:%.4fsec ,Bytes:%v\n", count, s.status, s.response_time.Seconds(), s.amount_of_data)
       writeLog(fmt.Sprintf("%6d : Status:%s ,Response time:%.4fsec ,Bytes:%v\r\n", count, s.status, s.response_time.Seconds(), s.amount_of_data))
 
-      r, err := regexp.Compile("100|101|102|200|201|202|203|204|205|206|207|208|226|300|301|302|303|304|305|306|307|308")
-      if err != nil {
-        log.Printf("%T %+v\n", err, err)
-        writeLog(fmt.Sprintf("%T %+v\r\n", err, err))
-      } else {
-        if r.MatchString(s.status) == true {
-          if(s.response_time.Seconds() > max_res) {
-            max_res = s.response_time.Seconds()
-          }
-          if(s.response_time.Seconds() < min_res) {
-            min_res = s.response_time.Seconds()
-          }
-          sum_res += s.response_time.Seconds()
-          if s.amount_of_data > 0 {
-            total_data += s.amount_of_data
-          }
-          success++
+      if r.MatchString(s.status) == true {
+        if(s.response_time.Seconds() > max_res) {
+          max_res = s.response_time.Seconds()
         }
+        if(s.response_time.Seconds() < min_res) {
+          min_res = s.response_time.Seconds()
+        }
+        sum_res += s.response_time.Seconds()
+        if s.amount_of_data > 0 {
+          total_data += s.amount_of_data
+        }
+        success++
       }
-      count++
     }
+    count++
   }
   end := time.Now()
-  close(result)
 
   fmt.Println("=============== SUMMARY ================")
   writeLog("=============== SUMMARY ================\r\n")
@@ -113,8 +148,8 @@ func main() {
   fmt.Println("Elapsed time:", end.Sub( start ))
   writeLog(fmt.Sprintf("Elapsed time: %v\r\n", end.Sub( start )))
 
-  fmt.Println("Successful transaction:", success)
-  writeLog(fmt.Sprintf("Successful transaction: %v\r\n", success))
+  fmt.Println("Success transaction:", success)
+  writeLog(fmt.Sprintf("Success transaction: %v\r\n", success))
 
   fmt.Println("Failed transaction:", ( user * trans ) - success)
   writeLog(fmt.Sprintf("Failed transaction: %v\r\n", ( user * trans ) - success))
@@ -134,26 +169,24 @@ func main() {
   fmt.Println("Average response time:", sum_res / float64(success), "s")
   writeLog(fmt.Sprintf("Average response time: %v sec\r\n", sum_res / float64(success)))
 
-  f.Close()
 }
 
-func sendRequest(uri string, n int, result chan Response_Stat, transport *http.Transport) {
+func sendRequest(uri string, n int, result chan Response_Stat, client *http.Client) {
   for i := 0 ; i < n ; i++ {
-    req, err := http.NewRequest( "GET", uri, nil )
-    if err != nil {
-      fmt.Println("Panic request")
-      writeLog("Panic request")
-      log.Printf("%T %+v\n", err, err)
-      writeLog(fmt.Sprintf("%T %+v\r\n", err, err))
-      result <- Response_Stat{ "Error from Request", 0, 0 }
-    } else {
+    // req, err := http.NewRequest( "GET", uri, nil )
+    // if err != nil {
+    //   log.Printf("Panic request\n%T %+v\n", err, err)
+    //   writeLog(fmt.Sprintf("Panic request\r\n%T %+v\r\n", err, err))
+    //   result <- Response_Stat{ "Error from Request", 0, 0 }
+    // } else { }
       start := time.Now()
-      res, err := transport.RoundTrip(req)
+      // res, err := transport.RoundTrip(req)
+      res, err := client.Get(uri)
       end := time.Now()
       response_time := end.Sub(start)
       if err != nil {
-        log.Printf("Panic Response %T %+v\n", err, err)
-        writeLog(fmt.Sprintf("Panic Response %T %+v\r\n", err, err))
+        log.Printf("Panic Response\n%T %+v\n", err, err)
+        writeLog(fmt.Sprintf("Panic Response\r\n%T %+v\r\n", err, err))
         result <- Response_Stat{ "Error from Response", response_time, 0 }
       } else {
         l := int(res.ContentLength)
@@ -161,7 +194,6 @@ func sendRequest(uri string, n int, result chan Response_Stat, transport *http.T
         ioutil.ReadAll(res.Body)
         res.Body.Close()
       }
-    }
   }
 }
 
@@ -176,4 +208,18 @@ func writeLog(message string) {
     return
   }
   f.Sync()
+}
+
+func readLine(reader *bufio.Reader) (string, error) {
+  isPrefix := true
+  var err error = nil
+  var line, text []byte
+  for isPrefix {
+    line, isPrefix, err = reader.ReadLine()
+    if err != io.EOF && err != nil {
+      log.Printf("%T %+v\n", err, err)
+    }
+    text = append(text, line ...)
+  }
+  return string(text), err
 }
