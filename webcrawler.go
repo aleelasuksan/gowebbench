@@ -44,7 +44,7 @@ func main() {
   uri := address.String()
   depth := *depthPtr
   load := *loadPtr
-  r, _ := regexp.Compile("html")
+  r, _ := regexp.Compile("htm|image|html|javascript|css|jpeg|jpg|png|gif|woff|ttf|ico")
 
   if depth < 0 {
     fmt.Println("Depth is less than 0, Please specify depth equals 0 or greater.")
@@ -197,14 +197,23 @@ func fetchHyperLink(httpBody io.Reader) []string {
       return links
     }
     token := body.Token()
-    if tokenType == html.StartTagToken && token.DataAtom.String() == "a" {
-      for _, attribute := range token.Attr {
-        if attribute.Key == "href" {
-          links = append(links, attribute.Val)
+    if tokenType == html.StartTagToken {
+      if token.DataAtom.String() == "a" || token.DataAtom.String() == "link" {
+        for _, attribute := range token.Attr {
+          if attribute.Key == "href" {
+            links = append(links, attribute.Val)
+          }
+        }
+      } else if token.DataAtom.String() == "img" || token.DataAtom.String() == "script" {
+        for _, attribute := range token.Attr {
+          if attribute.Key == "src" {
+            links = append(links, attribute.Val)
+          }
         }
       }
     }
   }
+  return links
 }
 
 func normalizeURL(href, base string) string {
