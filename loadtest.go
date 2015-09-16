@@ -173,27 +173,20 @@ func loadtest(uri string, user int, trans int, result chan Response_Stat, client
 
 func sendRequest(uri string, n int, result chan Response_Stat, client *http.Client) {
   for i := 0 ; i < n ; i++ {
-    // req, err := http.NewRequest( "GET", uri, nil )
-    // if err != nil {
-    //   log.Printf("Panic request\n%T %+v\n", err, err)
-    //   writeLog(fmt.Sprintf("Panic request\r\n%T %+v\r\n", err, err))
-    //   result <- Response_Stat{ "Error from Request", 0, 0 }
-    // } else { }
-      start := time.Now()
-      // res, err := transport.RoundTrip(req)
-      res, err := client.Get(uri)
-      end := time.Now()
-      response_time := end.Sub(start)
-      if err != nil {
-        log.Printf("Panic Response\n%T %+v\n", err, err)
-        writeLog(fmt.Sprintf("Panic Response\r\n%T %+v\r\n", err, err))
-        result <- Response_Stat{ "Error from Response", response_time, 0 }
-      } else {
-        l := int(res.ContentLength)
-        result <- Response_Stat{res.Status, response_time, l}
-        ioutil.ReadAll(res.Body)
-        res.Body.Close()
-      }
+    start := time.Now()
+    res, err := client.Get(uri)
+    end := time.Now()
+    response_time := end.Sub(start)
+    if err != nil {
+      log.Printf("Panic Response\n%T %+v\n", err, err)
+      writeLog(fmt.Sprintf("Panic Response\r\n%T %+v\r\n", err, err))
+      result <- Response_Stat{ "Error from Response", response_time, 0 }
+    } else {
+      l := int(res.ContentLength)
+      result <- Response_Stat{res.Status, response_time, l}
+      ioutil.ReadAll(res.Body)
+      res.Body.Close()
+    }
   }
 }
 
