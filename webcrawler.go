@@ -72,11 +72,16 @@ func main() {
   go fetchURI(uri, depth, base, r, client)
   time.Sleep(1 * time.Second)
   wg.Wait()
+
   writeLog("Done Crawling!\r\n\r\n")
   fmt.Println("Done Crawling!\n")
+
   f.Close()
 
   filename = *filePtr
+  if _, err := os.Stat(filename); err == nil {
+    os.Remove(filename)
+  }
   // // os.O_APPEND to append result file
   f, err = os.OpenFile(filename, os.O_WRONLY | os.O_CREATE, 0666)
   if err != nil {
@@ -90,11 +95,9 @@ func main() {
   for key, value := range visited {
     if value {
       count++
-      // fmt.Println(key)
       writeLog(fmt.Sprintf("%v\r\n", key))
     }
   }
-  // writeLog(fmt.Sprintf("%v uri found.\r\n\r\n", count))
   fmt.Printf("%v uri found.\n", count)
 
   if load {
@@ -103,23 +106,14 @@ func main() {
 }
 
 func fetchURI(uri string, depth int, base *regexp.Regexp, reghtml *regexp.Regexp, client *http.Client) {
-
   defer wg.Done()
-  // fmt.Println("fetching: ", uri, depth)
-  // writeLog(fmt.Sprintf("fetching: %v %v %v\r\n", uri, depth))
   if depth == 0 {
-    // req, err := http.NewRequest( "HEAD", uri, nil)
-    // if err != nil {
-    //   return
-    // }
-    // res, err := transport.RoundTrip(req)
     res, err := client.Head(uri)
     if err != nil {
       log.Printf("Panic Head %v %v\n%T %+v\n", uri, depth, err, err)
       writeLog(fmt.Sprintf("Panic Head %v %v\n%T %+v\r\n", uri, depth, err, err))
       return
     }
-
     defer res.Body.Close()
 
     fmt.Printf("fetched: %v %v\n", uri, depth)
@@ -129,11 +123,6 @@ func fetchURI(uri string, depth int, base *regexp.Regexp, reghtml *regexp.Regexp
     }
     return
   } else {
-    // req, err := http.NewRequest( "GET", uri, nil )
-    // if err != nil {
-    //   return
-    // }
-    // res, err := transport.RoundTrip(req)
     res, err := client.Get(uri)
     if err != nil {
       log.Printf("Panic Get %v %v\n%T %+v\n", uri, depth, err, err)
@@ -141,25 +130,31 @@ func fetchURI(uri string, depth int, base *regexp.Regexp, reghtml *regexp.Regexp
       return
     }
     defer res.Body.Close()
+
     fmt.Printf("fetched: %v %v\n", uri, depth)
 
     if !reghtml.MatchString(res.Header.Get("Content-Type")) {
       visited[uri] = false
       return
     }
+    if !strings.Contains(res.Header.Get("Content-Type"), "html") {
+      return
+    }
     links := fetchHyperLink(res.Body)
     for _, link := range links {
       absolutePath := normalizeURL(link, uri)
       if absolutePath != "" {
-
         address := parseURIwithoutFragment(absolutePath)
-
         // if request uri host/domain doesn't match base host then ignore this uri
         if address == nil || !base.MatchString(address.Host) {
           continue
         }
-
         target := address.String()
+        target, err = url.QueryUnescape(target)
+        if err != nil {
+          continue
+        }
+
         if !visited[target] {
           visited[target] = true
           wg.Add(1)
@@ -173,7 +168,6 @@ func fetchURI(uri string, depth int, base *regexp.Regexp, reghtml *regexp.Regexp
 func loadtest(user int, trans int, filename string) {
   fmt.Println("Start Load Testing...")
   path := "loadtest.go"
-  start := time.Now()
 
   fmt.Println()
   cmd := exec.Command("cmd", fmt.Sprintf("/C go run %s -input=%s -user=%d -trans=%d", path, filename, user, trans))
@@ -181,10 +175,7 @@ func loadtest(user int, trans int, filename string) {
   cmd.Stderr = os.Stderr
   cmd.Run()
 
-  end := time.Now()
   fmt.Println("Done Load Testing!")
-  fmt.Printf("Total time: %v\n", end.Sub(start))
-  fmt.Printf("%v uri.\n", len(visited))
 }
 
 func fetchHyperLink(httpBody io.Reader) []string {
