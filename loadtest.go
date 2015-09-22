@@ -5,7 +5,6 @@ import "flag"
 import "os"
 import "net/http"
 import "time"
-// import "runtime/debug"
 import "runtime"
 import "io/ioutil"
 import "log"
@@ -30,14 +29,12 @@ func main() {
   inputListPtr := flag.String("input", "", "path or filename for input file which use to read an address for load testing")
   flag.Parse()
 
-  // debug.SetGCPercent(200)
   runtime.GOMAXPROCS(runtime.NumCPU())
-  uri := *uriPtr
-  user := *userPtr
-  trans := *transPtr
-  input := *inputListPtr
-  filename := *filePtr
 
+  setup(*uriPtr, *userPtr, *transPtr, *inputListPtr, *filePtr)
+}
+
+func setup(uri string, user int, trans int, input string, filename string) {
   var err error
   f, err = os.OpenFile(filename, os.O_WRONLY | os.O_APPEND | os.O_CREATE, 0666)
   if err != nil {
@@ -47,12 +44,12 @@ func main() {
 
   result := make(chan Response_Stat, user)
   defer close(result)
+
   transport := &http.Transport{
     DisableKeepAlives: false,
     MaxIdleConnsPerHost: user,
     ResponseHeaderTimeout: 60 * time.Second,
   }
-
   client := &http.Client{
     Transport: transport,
   }
@@ -68,18 +65,31 @@ func main() {
     defer infile.Close()
     r := bufio.NewReader(infile)
     err = nil
+    var count int = 0
+    reg, _ := regexp.Compile(".jpg|.png|.gif|.jpeg|.ico")
     start := time.Now()
     for err != io.EOF {
       var s string
       s, err = readLine(r)
       if err == nil && len(s) > 0 {
-        loadtest(s, user, trans, result, client)
+        if reg.MatchString(s) {
+          trans_reduced := trans/3
+          if trans_reduced == 0 {
+            trans_reduced = 1
+          }
+          loadtest(s, user, trans_reduced, result, client)
+        } else {
+          loadtest(s, user, trans, result, client)
+        }
         fmt.Println()
         writeLog("\r\n")
+        count++
       }
     }
     stop := time.Now()
+
     fmt.Printf("Total time: %v\n", stop.Sub(start))
+    fmt.Printf("%v urls tested.\n", count)
     fmt.Println("DONE")
   }
 }
@@ -103,11 +113,13 @@ func loadtest(uri string, user int, trans int, result chan Response_Stat, client
   sum_res = 0
   total_data := 0
   timeout := false
+
   r, err := regexp.Compile("100|101|102|200|201|202|203|204|205|206|207|208|226|300|301|302|303|304|305|306|307|308")
   if err != nil {
     log.Printf("%T %+v\n", err, err)
     writeLog(fmt.Sprintf("%T %+v\r\n", err, err))
   }
+
   for ; count != user * trans && !timeout ; {
     select {
     case s := <-result:
@@ -168,7 +180,6 @@ func loadtest(uri string, user int, trans int, result chan Response_Stat, client
 
   fmt.Println("Average response time:", sum_res / float64(success), "s")
   writeLog(fmt.Sprintf("Average response time: %v sec\r\n", sum_res / float64(success)))
-
 }
 
 func sendRequest(uri string, n int, result chan Response_Stat, client *http.Client) {

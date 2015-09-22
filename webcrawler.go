@@ -17,6 +17,7 @@ import "runtime"
 import "time"
 import "strings"
 import "io/ioutil"
+import "math"
 
 var visited = make(map[string]bool)
 
@@ -24,36 +25,45 @@ var wg sync.WaitGroup
 
 var f *os.File
 
+var limit int
+
 func main() {
   uriPtr := flag.String("uri", "http://www.google.com/", "uri to start crawling")
   depthPtr := flag.Int("depth", 1, "depth to crawl")
   loadPtr := flag.Bool("load", false, "do load testing")
   userPtr := flag.Int("user", 100, "number of concurrent users")
   transPtr := flag.Int("trans", 1, "number of transaction for each user")
-  filePtr := flag.String("output", "crawl_result.log", "path or filename for text output file")
+  filePtr := flag.String("output", "crawl_result.log",
+     "path or filename for text output file")
+  limitPtr := flag.Float64("limit", -1,
+     "limit number of crawled urls. (less than zero mean no limitation)")
   flag.Parse()
 
-  runtime.GOMAXPROCS(runtime.NumCPU())
-
-  address := parseURIwithoutFragment(*uriPtr)
-  if address == nil {
-    fmt.Println("Given URI is invalid.")
-    os.Exit(1)
-  }
-  base, _ := regexp.Compile(strings.Replace(address.Host, ".", "\\.", -1))
-  uri := address.String()
-  depth := *depthPtr
-  load := *loadPtr
-  r, _ := regexp.Compile("htm|image|html|javascript|css|jpeg|jpg|png|gif|woff|ttf|ico")
-
-  if depth < 0 {
+  if *depthPtr < 0 {
     fmt.Println("Depth is less than 0, Please specify depth equals 0 or greater.")
     os.Exit(1)
   }
 
-  filename := "crawling.log"
+  runtime.GOMAXPROCS(runtime.NumCPU())
+
+  crawling(*uriPtr, *depthPtr, *loadPtr, *limitPtr, *filePtr, *userPtr, *transPtr)
+}
+
+func crawling(add string, depth int, load bool, lim int,
+  filename string, user int, trans int ) {
+  address := parseURIwithoutFragment(add)
+  if address == nil {
+    fmt.Println("Given URL is invalid.")
+    os.Exit(1)
+  }
+  base, _ := regexp.Compile(strings.Replace(address.Host, ".", "\\.", -1))
+  uri := address.String()
+  limit = int(*limitPtr * ( 1 + ( math.Log( *limitPtr ) / 100 ) ) )
+  r, _ := regexp.Compile("htm|image|html|javascript|css|jpeg|jpg|png|gif|woff|ttf|ico")
+
+  logfile := "crawling.log"
   var err error
-  f, err = os.OpenFile(filename, os.O_WRONLY | os.O_APPEND | os.O_CREATE, 0666)
+  f, err = os.OpenFile(logfile, os.O_WRONLY | os.O_APPEND | os.O_CREATE, 0666)
   if err != nil {
     log.Printf("%T %+v\n", err, err)
     os.Exit(1)
@@ -78,7 +88,6 @@ func main() {
 
   f.Close()
 
-  filename = *filePtr
   if _, err := os.Stat(filename); err == nil {
     os.Remove(filename)
   }
@@ -101,12 +110,19 @@ func main() {
   fmt.Printf("%v uri found.\n", count)
 
   if load {
-    loadtest(*userPtr, *transPtr, filename)
+    loadtest(user, trans, filename)
   }
 }
 
-func fetchURI(uri string, depth int, base *regexp.Regexp, reghtml *regexp.Regexp, client *http.Client) {
+func fetchURI(uri string, depth int, base *regexp.Regexp,
+   reghtml *regexp.Regexp, client *http.Client) {
   defer wg.Done()
+
+  if limit != -1 && len(visited) > limit {
+    delete(visited, uri)
+    return
+  }
+
   if depth == 0 {
     res, err := client.Head(uri)
     if err != nil {
@@ -119,7 +135,7 @@ func fetchURI(uri string, depth int, base *regexp.Regexp, reghtml *regexp.Regexp
     fmt.Printf("fetched: %v %v\n", uri, depth)
 
     if !reghtml.MatchString(res.Header.Get("Content-Type")) {
-      visited[uri] = false
+      delete(visited, uri)
     }
     return
   } else {
@@ -134,7 +150,7 @@ func fetchURI(uri string, depth int, base *regexp.Regexp, reghtml *regexp.Regexp
     fmt.Printf("fetched: %v %v\n", uri, depth)
 
     if !reghtml.MatchString(res.Header.Get("Content-Type")) {
-      visited[uri] = false
+      delete(visited, uri)
       return
     }
     if !strings.Contains(res.Header.Get("Content-Type"), "html") {
@@ -145,7 +161,7 @@ func fetchURI(uri string, depth int, base *regexp.Regexp, reghtml *regexp.Regexp
       absolutePath := normalizeURL(link, uri)
       if absolutePath != "" {
         address := parseURIwithoutFragment(absolutePath)
-        // if request uri host/domain doesn't match base host then ignore this uri
+        // if request uri host/domain doesn't match base host then ignore
         if address == nil || !base.MatchString(address.Host) {
           continue
         }
@@ -154,7 +170,6 @@ func fetchURI(uri string, depth int, base *regexp.Regexp, reghtml *regexp.Regexp
         if err != nil {
           continue
         }
-
         if !visited[target] {
           visited[target] = true
           wg.Add(1)
