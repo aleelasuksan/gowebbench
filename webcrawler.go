@@ -19,7 +19,7 @@ import "strings"
 import "io/ioutil"
 import "math"
 
-var visited = make(map[string]bool)
+var visited = make(map[string]int)
 
 var wg sync.WaitGroup
 
@@ -46,10 +46,10 @@ func main() {
 
   runtime.GOMAXPROCS(runtime.NumCPU())
 
-  crawling(*uriPtr, *depthPtr, *loadPtr, *limitPtr, *filePtr, *userPtr, *transPtr)
+  crawl(*uriPtr, *depthPtr, *loadPtr, *limitPtr, *filePtr, *userPtr, *transPtr)
 }
 
-func crawling(add string, depth int, load bool, lim int,
+func crawl(add string, depth int, load bool, lim float64,
   filename string, user int, trans int ) {
   address := parseURIwithoutFragment(add)
   if address == nil {
@@ -58,12 +58,15 @@ func crawling(add string, depth int, load bool, lim int,
   }
   base, _ := regexp.Compile(strings.Replace(address.Host, ".", "\\.", -1))
   uri := address.String()
-  limit = int(*limitPtr * ( 1 + ( math.Log( *limitPtr ) / 100 ) ) )
+  limit = int(lim * ( 1 + ( math.Log10( lim ) / 100 ) ) )
   r, _ := regexp.Compile("htm|image|html|javascript|css|jpeg|jpg|png|gif|woff|ttf|ico")
 
   logfile := "crawling.log"
   var err error
-  f, err = os.OpenFile(logfile, os.O_WRONLY | os.O_APPEND | os.O_CREATE, 0666)
+  if _, err := os.Stat(logfile); err == nil {
+    os.Remove(logfile)
+  }
+  f, err = os.OpenFile(logfile, os.O_WRONLY | os.O_CREATE, 0666)
   if err != nil {
     log.Printf("%T %+v\n", err, err)
     os.Exit(1)
@@ -76,7 +79,7 @@ func crawling(add string, depth int, load bool, lim int,
   client := &http.Client {
     Transport: transport,
   }
-  visited[uri] = true
+  visited[uri] = depth
 
   wg.Add(1)
   go fetchURI(uri, depth, base, r, client)
@@ -102,10 +105,8 @@ func crawling(add string, depth int, load bool, lim int,
   fmt.Printf("Write Result to file %v ...\n", filename)
 
   for key, value := range visited {
-    if value {
-      count++
-      writeLog(fmt.Sprintf("%v\r\n", key))
-    }
+    count++
+    writeLog(fmt.Sprintf("%v %v\r\n", key, depth-value))
   }
   fmt.Printf("%v uri found.\n", count)
 
@@ -114,11 +115,10 @@ func crawling(add string, depth int, load bool, lim int,
   }
 }
 
-func fetchURI(uri string, depth int, base *regexp.Regexp,
-   reghtml *regexp.Regexp, client *http.Client) {
+func fetchURI(uri string, depth int, base *regexp.Regexp, reghtml *regexp.Regexp, client *http.Client) {
   defer wg.Done()
 
-  if limit != -1 && len(visited) > limit {
+  if limit > 0 && len(visited) > limit {
     delete(visited, uri)
     return
   }
@@ -132,7 +132,8 @@ func fetchURI(uri string, depth int, base *regexp.Regexp,
     }
     defer res.Body.Close()
 
-    fmt.Printf("fetched: %v %v\n", uri, depth)
+    writeLog(fmt.Sprintf("Fetch: %v %v\r\n%v\r\n", uri, depth, res.Status))
+    fmt.Printf("Fetched: %v %v\n%v\n", uri, depth, res.Status)
 
     if !reghtml.MatchString(res.Header.Get("Content-Type")) {
       delete(visited, uri)
@@ -147,7 +148,8 @@ func fetchURI(uri string, depth int, base *regexp.Regexp,
     }
     defer res.Body.Close()
 
-    fmt.Printf("fetched: %v %v\n", uri, depth)
+    writeLog(fmt.Sprintf("Fetch: %v %v\r\n%v\r\n", uri, depth, res.Status))
+    fmt.Printf("Fetched: %v %v\n%v\n", uri, depth, res.Status)
 
     if !reghtml.MatchString(res.Header.Get("Content-Type")) {
       delete(visited, uri)
@@ -156,6 +158,7 @@ func fetchURI(uri string, depth int, base *regexp.Regexp,
     if !strings.Contains(res.Header.Get("Content-Type"), "html") {
       return
     }
+
     links := fetchHyperLink(res.Body)
     for _, link := range links {
       absolutePath := normalizeURL(link, uri)
@@ -170,8 +173,8 @@ func fetchURI(uri string, depth int, base *regexp.Regexp,
         if err != nil {
           continue
         }
-        if !visited[target] {
-          visited[target] = true
+        if visited[target] > -1 {
+          visited[target] = depth-1
           wg.Add(1)
           go fetchURI(target, depth-1, base, reghtml, client)
         }

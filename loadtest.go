@@ -12,6 +12,8 @@ import "regexp"
 import "bytes"
 import "io"
 import "bufio"
+import "strings"
+import "strconv"
 
 type Response_Stat struct {
   status string
@@ -31,10 +33,10 @@ func main() {
 
   runtime.GOMAXPROCS(runtime.NumCPU())
 
-  setup(*uriPtr, *userPtr, *transPtr, *inputListPtr, *filePtr)
+  load(*uriPtr, *userPtr, *transPtr, *inputListPtr, *filePtr)
 }
 
-func setup(uri string, user int, trans int, input string, filename string) {
+func load(uri string, user int, trans int, input string, filename string) {
   var err error
   f, err = os.OpenFile(filename, os.O_WRONLY | os.O_APPEND | os.O_CREATE, 0666)
   if err != nil {
@@ -55,7 +57,7 @@ func setup(uri string, user int, trans int, input string, filename string) {
   }
 
   if input == "" {
-    loadtest(uri, user, trans, result, client)
+    queueload(uri, user, trans, result, client)
   } else {
     infile, err := os.Open(input)
     if err != nil {
@@ -72,15 +74,40 @@ func setup(uri string, user int, trans int, input string, filename string) {
       var s string
       s, err = readLine(r)
       if err == nil && len(s) > 0 {
-        if reg.MatchString(s) {
-          trans_reduced := trans/3
+        arr := strings.Split(s, " ")
+        if len(arr) == 1 {
+          if reg.MatchString(s) {
+            trans_reduced := trans/3
+            if trans_reduced == 0 {
+              trans_reduced = 1
+            }
+            queueload(arr[0], user, trans_reduced, result, client)
+          } else {
+            queueload(arr[0], user, trans, result, client)
+          }
+        } else {
+          trans_reduced := trans
+          depth, err := strconv.Atoi(arr[1])
+          if err != nil {
+            continue
+          }
+          for i := 0 ; i < depth ; i++ {
+            trans_reduced = int(float64(trans_reduced)*0.8)
+          }
           if trans_reduced == 0 {
             trans_reduced = 1
           }
-          loadtest(s, user, trans_reduced, result, client)
-        } else {
-          loadtest(s, user, trans, result, client)
+          if reg.MatchString(s) {
+            trans_reduced /= 3
+            if trans_reduced == 0 {
+              trans_reduced = 1
+            }
+            queueload(arr[0], user, trans_reduced, result, client)
+          } else {
+            queueload(arr[0], user, trans_reduced, result, client)
+          }
         }
+
         fmt.Println()
         writeLog("\r\n")
         count++
@@ -94,7 +121,7 @@ func setup(uri string, user int, trans int, input string, filename string) {
   }
 }
 
-func loadtest(uri string, user int, trans int, result chan Response_Stat, client *http.Client) {
+func queueload(uri string, user int, trans int, result chan Response_Stat, client *http.Client) {
   start := time.Now()
   for i := 0 ; i < user ; i++ {
     go sendRequest(uri, trans, result, client)
