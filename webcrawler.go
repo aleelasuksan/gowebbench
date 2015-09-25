@@ -79,7 +79,7 @@ func crawl(add string, depth int, load bool, lim float64,
   client := &http.Client {
     Transport: transport,
   }
-  visited[uri] = depth
+  visited[uri] = 1
 
   wg.Add(1)
   go fetchURI(uri, depth, base, r, client)
@@ -94,7 +94,7 @@ func crawl(add string, depth int, load bool, lim float64,
   if _, err := os.Stat(filename); err == nil {
     os.Remove(filename)
   }
-  // // os.O_APPEND to append result file
+  // os.O_APPEND to append result file
   f, err = os.OpenFile(filename, os.O_WRONLY | os.O_CREATE, 0666)
   if err != nil {
     log.Printf("%T %+v\n", err, err)
@@ -173,7 +173,7 @@ func fetchURI(uri string, depth int, base *regexp.Regexp, reghtml *regexp.Regexp
         if err != nil {
           continue
         }
-        if visited[target] > -1 {
+        if visited[target] < 1 {
           visited[target] = depth-1
           wg.Add(1)
           go fetchURI(target, depth-1, base, reghtml, client)

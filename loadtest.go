@@ -91,7 +91,7 @@ func load(uri string, user int, trans int, input string, filename string) {
           if err != nil {
             continue
           }
-          for i := 0 ; i < depth ; i++ {
+          for i := 1 ; i < depth ; i++ {
             trans_reduced = int(float64(trans_reduced)*0.8)
           }
           if trans_reduced == 0 {
