@@ -1,0 +1,13 @@
+#!/bin/bash
+
+case $1 in
+  start)
+    echo $$ > /var/run/webcrawler.pid;
+    exec 2>&1 go run /root/WTesting/webcrawler.go 1>/root/webcrawler.out
+    ;;
+  stop)
+    kill 'cat /var/run/webcrawler.pid' ;;
+  *)
+    echo "usage: webcrawler {start|stop}" ;;
+esac
+exit 0

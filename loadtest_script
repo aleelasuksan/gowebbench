@@ -1,0 +1,13 @@
+#!/bin/bash
+
+case $1 in
+  start)
+    echo $$ > /var/run/loadtest.pid;
+    exec 2>&1 go run /root/WTesting/loadtest.go 1>/root/loadtest.out
+    ;;
+  stop)
+    kill 'cat /var/run/loadtest.pid' ;;
+  *)
+    echo "usage: loadtest {start|stop}" ;;
+esac
+exit 0

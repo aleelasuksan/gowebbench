@@ -31,13 +31,9 @@ func main() {
   inputListPtr := flag.String("input", "", "path or filename for input file which use to read an address for load testing")
   flag.Parse()
 
-  writePID()
-
   runtime.GOMAXPROCS(runtime.NumCPU())
 
   load(*uriPtr, *userPtr, *transPtr, *inputListPtr, *filePtr)
-
-  removePID()
 }
 
 func load(uri string, user int, trans int, input string, filename string) {
@@ -257,33 +253,4 @@ func readLine(reader *bufio.Reader) (string, error) {
     text = append(text, line ...)
   }
   return string(text), err
-}
-
-func writePID() bool {
-  path := "/var/run/loadtest.pid"
-  if _, err := os.Stat(path); err == nil {
-    if err := os.Remove(path); err != nil {
-      return false
-    }
-  }
-  pid, err := os.OpenFile(path, os.O_EXCL|os.O_CREATE|os.O_WRONLY, 0666)
-  if err != nil {
-    return false
-  }
-  defer pid.Close()
-  if _, err := fmt.Fprint(pid, os.Getpid()); err != nil {
-    return false
-  }
-  return true
-}
-
-func removePID() bool {
-  path := "/var/run/loadtest.pid"
-  if _, err := os.Stat(path); err == nil {
-    if err := os.Remove(path); err != nil {
-      return false
-    }
-    return true
-  }
-  return false
 }

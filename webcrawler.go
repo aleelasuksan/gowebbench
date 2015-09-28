@@ -44,13 +44,9 @@ func main() {
     os.Exit(1)
   }
 
-  writePID()
-
   runtime.GOMAXPROCS(runtime.NumCPU())
 
   crawl(*uriPtr, *depthPtr, *loadPtr, *limitPtr, *filePtr, *userPtr, *transPtr)
-
-  removePID()
 }
 
 func crawl(add string, depth int, load bool, lim float64,
@@ -269,33 +265,4 @@ func parseURIwithoutFragment(s string) *url.URL{
   address.Fragment = ""
   address.RawQuery = ""
   return address
-}
-
-func writePID() bool {
-  path := "/var/run/webcrawler.pid"
-  if _, err := os.Stat(path); err == nil {
-    if err := os.Remove(path); err != nil {
-      return false
-    }
-  }
-  pid, err := os.OpenFile(path, os.O_EXCL|os.O_CREATE|os.O_WRONLY, 0666)
-  if err != nil {
-    return false
-  }
-  defer pid.Close()
-  if _, err := fmt.Fprint(pid, os.Getpid()); err != nil {
-    return false
-  }
-  return true
-}
-
-func removePID() bool {
-  path := "/var/run/webcrawler.pid"
-  if _, err := os.Stat(path); err == nil {
-    if err := os.Remove(path); err != nil {
-      return false
-    }
-    return true
-  }
-  return false
 }
