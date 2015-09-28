@@ -31,9 +31,13 @@ func main() {
   inputListPtr := flag.String("input", "", "path or filename for input file which use to read an address for load testing")
   flag.Parse()
 
+  writePID()
+
   runtime.GOMAXPROCS(runtime.NumCPU())
 
   load(*uriPtr, *userPtr, *transPtr, *inputListPtr, *filePtr)
+
+  removePID()
 }
 
 func load(uri string, user int, trans int, input string, filename string) {
@@ -271,4 +275,15 @@ func writePID() bool {
     return false
   }
   return true
+}
+
+func removePID() bool {
+  path := "/var/run/loadtest.pid"
+  if _, err := os.Stat(path); err == nil {
+    if err := os.Remove(path); err != nil {
+      return false
+    }
+    return true
+  }
+  return false
 }

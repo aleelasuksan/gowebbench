@@ -44,9 +44,13 @@ func main() {
     os.Exit(1)
   }
 
+  writePID()
+
   runtime.GOMAXPROCS(runtime.NumCPU())
 
   crawl(*uriPtr, *depthPtr, *loadPtr, *limitPtr, *filePtr, *userPtr, *transPtr)
+
+  removePID()
 }
 
 func crawl(add string, depth int, load bool, lim float64,
@@ -283,4 +287,15 @@ func writePID() bool {
     return false
   }
   return true
+}
+
+func removePID() bool {
+  path := "/var/run/webcrawler.pid"
+  if _, err := os.Stat(path); err == nil {
+    if err := os.Remove(path); err != nil {
+      return false
+    }
+    return true
+  }
+  return false
 }
