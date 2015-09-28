@@ -254,3 +254,21 @@ func readLine(reader *bufio.Reader) (string, error) {
   }
   return string(text), err
 }
+
+func writePID() bool {
+  path := "/var/run/loadtest.pid"
+  if _, err := os.Stat(path); err == nil {
+    if err := os.Remove(path); err != nil {
+      return false
+    }
+  }
+  pid, err := os.OpenFile(path, os.O_EXCL|os.O_CREATE|os.O_WRONLY, 0666)
+  if err != nil {
+    return false
+  }
+  defer pid.Close()
+  if _, err := fmt.Fprint(pid, os.Getpid()); err != nil {
+    return false
+  }
+  return true
+}
