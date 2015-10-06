@@ -1,2 +1,1 @@
-# WTesting
-Web crawler integreated with load testing module in golang
+Web crawler and load testing module written in golang
