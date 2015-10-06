@@ -81,13 +81,16 @@ func crawl(add string, depth int, load bool, lim float64,
   }
   visited[uri] = 1
 
+  fmt.Printf("%s Start crawling...\n", time.Now().Format(time.RFC850))
+  writeLog(fmt.Sprintf("%s Start crawling...\r\n", time.Now().Format(time.RFC850)))
+
   wg.Add(1)
   go fetchURI(uri, depth, base, r, client)
   time.Sleep(1 * time.Second)
   wg.Wait()
 
-  writeLog("Done Crawling!\r\n\r\n")
-  fmt.Println("Done Crawling!\n")
+  writeLog(fmt.Sprintf("%s Done Crawling!\r\n\r\n", time.Now().Format(time.RFC850)))
+  fmt.Printf("%s Done Crawling!\n\n", time.Now().Format(time.RFC850))
 
   f.Close()
 

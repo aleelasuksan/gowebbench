@@ -116,8 +116,13 @@ func load(uri string, user int, trans int, input string, filename string) {
     stop := time.Now()
 
     fmt.Printf("Total time: %v\n", stop.Sub(start))
+    writeLog(fmt.Sprintf("Total time: %v\n", stop.Sub(start)))
+
     fmt.Printf("%v urls tested.\n", count)
-    fmt.Println("DONE")
+    writeLog(fmt.Sprintf("%v urls tested.\n", count))
+
+    fmt.Printf("%s DONE", time.Now())
+    writeLog(fmt.Sprintf("%s DONE", time.Now().Format(time.RFC850)))
   }
 }
 
@@ -127,8 +132,8 @@ func queueload(uri string, user int, trans int, result chan Response_Stat, clien
     go sendRequest(uri, trans, result, client)
   }
 
-  fmt.Printf("Start test %s...\n", uri)
-  writeLog(fmt.Sprintf("Start test %s...\r\n", uri))
+  fmt.Printf("%s Start test %s...\n", time.Now().Format(time.RFC850), uri)
+  writeLog(fmt.Sprintf("%s Start test %s...\r\n", time.Now().Format(time.RFC850), uri))
 
   count := 0
   success := 0
@@ -151,8 +156,8 @@ func queueload(uri string, user int, trans int, result chan Response_Stat, clien
     select {
     case s := <-result:
 
-      fmt.Printf("%6d : Status:%s ,Response time:%.4fsec ,Bytes:%v\n", count, s.status, s.response_time.Seconds(), s.amount_of_data)
-      writeLog(fmt.Sprintf("%6d : Status:%s ,Response time:%.4fsec ,Bytes:%v\r\n", count, s.status, s.response_time.Seconds(), s.amount_of_data))
+      fmt.Printf("%6d : Status:%s\n         Response time:%.4fsec ,Bytes:%v\n", count, s.status, s.response_time.Seconds(), s.amount_of_data)
+      writeLog(fmt.Sprintf("%6d : Status:%s\r\n         Response time:%.4fsec ,Bytes:%v\r\n", count, s.status, s.response_time.Seconds(), s.amount_of_data))
 
       if r.MatchString(s.status) == true {
         if(s.response_time.Seconds() > max_res) {
@@ -174,6 +179,9 @@ func queueload(uri string, user int, trans int, result chan Response_Stat, clien
 
   fmt.Println("=============== SUMMARY ================")
   writeLog("=============== SUMMARY ================\r\n")
+
+  fmt.Printf("%s\n", time.Now().Format(time.RFC850))
+  writeLog(fmt.Sprintf("%s\r\n", time.Now().Format(time.RFC850)))
 
   fmt.Println("Target address:", uri)
   writeLog(fmt.Sprintf("Target address: %v\r\n", uri))
@@ -216,9 +224,7 @@ func sendRequest(uri string, n int, result chan Response_Stat, client *http.Clie
     end := time.Now()
     response_time := end.Sub(start)
     if err != nil {
-      log.Printf("Panic Response\n%T %+v\n", err, err)
-      writeLog(fmt.Sprintf("Panic Response\r\n%T %+v\r\n", err, err))
-      result <- Response_Stat{ "Error from Response", response_time, 0 }
+      result <- Response_Stat{ fmt.Sprintf("Response Error%T %+v\r\n", err, err), response_time, 0 }
     } else {
       l := int(res.ContentLength)
       result <- Response_Stat{res.Status, response_time, l}
