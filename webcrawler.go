@@ -10,7 +10,6 @@ import "flag"
 import "os"
 import "regexp"
 import "log"
-import "os/exec"
 import "sync"
 import "bytes"
 import "runtime"
@@ -30,9 +29,6 @@ var limit int
 func main() {
   uriPtr := flag.String("uri", "http://www.google.com/", "uri to start crawling")
   depthPtr := flag.Int("depth", 1, "depth to crawl")
-  loadPtr := flag.Bool("load", false, "do load testing")
-  userPtr := flag.Int("user", 100, "number of concurrent users")
-  transPtr := flag.Int("trans", 1, "number of transaction for each user")
   filePtr := flag.String("output", "crawl_result.log",
      "path or filename for text output file")
   limitPtr := flag.Float64("limit", -1,
@@ -46,11 +42,11 @@ func main() {
 
   runtime.GOMAXPROCS(runtime.NumCPU())
 
-  crawl(*uriPtr, *depthPtr, *loadPtr, *limitPtr, *filePtr, *userPtr, *transPtr)
+  crawl(*uriPtr, *depthPtr, *limitPtr, *filePtr)
 }
 
-func crawl(add string, depth int, load bool, lim float64,
-  filename string, user int, trans int ) {
+func crawl(add string, depth int, lim float64,
+  filename string ) {
   address := parseURIwithoutFragment(add)
   if address == nil {
     fmt.Println("Given URL is invalid.")
@@ -112,10 +108,6 @@ func crawl(add string, depth int, load bool, lim float64,
     writeLog(fmt.Sprintf("%v %v\r\n", key, depth-value))
   }
   fmt.Printf("%v uri found.\n", count)
-
-  if load {
-    loadtest(user, trans, filename)
-  }
 }
 
 func fetchURI(uri string, depth int, base *regexp.Regexp, reghtml *regexp.Regexp, client *http.Client) {
@@ -184,19 +176,6 @@ func fetchURI(uri string, depth int, base *regexp.Regexp, reghtml *regexp.Regexp
       }
     }
   }
-}
-
-func loadtest(user int, trans int, filename string) {
-  fmt.Println("Start Load Testing...")
-  path := "loadtest.go"
-
-  fmt.Println()
-  cmd := exec.Command("cmd", fmt.Sprintf("/C go run %s -input=%s -user=%d -trans=%d", path, filename, user, trans))
-  cmd.Stdout = os.Stdout
-  cmd.Stderr = os.Stderr
-  cmd.Run()
-
-  fmt.Println("Done Load Testing!")
 }
 
 func fetchHyperLink(httpBody io.Reader) []string {
