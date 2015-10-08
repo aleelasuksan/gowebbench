@@ -38,7 +38,10 @@ func main() {
 
 func load(uri string, user int, trans int, input string, filename string) {
   var err error
-  f, err = os.OpenFile(filename, os.O_WRONLY | os.O_APPEND | os.O_CREATE, 0666)
+  if _, err = os.Stat(filename); err == nil {
+    os.Remove(filename)
+  }
+  f, err = os.OpenFile(filename, os.O_WRONLY | os.O_CREATE, 0666)
   if err != nil {
     log.Printf("%T %+v\n", err, err)
   }
