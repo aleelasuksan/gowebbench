@@ -224,7 +224,7 @@ func sendRequest(uri string, n int, result chan Response_Stat, client *http.Clie
     end := time.Now()
     response_time := end.Sub(start)
     if err != nil {
-      result <- Response_Stat{ fmt.Sprintf("Response Error%T %+vg", err, err), response_time, 0 }
+      result <- Response_Stat{ fmt.Sprintf("Response Error%T %+v", err, err), response_time, 0 }
     } else {
       l := int(res.ContentLength)
       result <- Response_Stat{res.Status, response_time, l}
