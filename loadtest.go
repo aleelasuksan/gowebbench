@@ -146,7 +146,7 @@ func queueload(uri string, user int, trans int, result chan Response_Stat, clien
   total_data := 0
   timeout := false
 
-  r, err := regexp.Compile("100|101|102|200|201|202|203|204|205|206|207|208|226|300|301|302|303|304|305|306|307|308")
+  r, err := regexp.Compile("^100|^101|^102|^200|^201|^202|^203|^204|^205|^206|^207|^208|^226|^300|^301|^302|^303|^304|^305|^306|^307|^308")
   if err != nil {
     log.Printf("%T %+v\n", err, err)
     writeLog(fmt.Sprintf("%T %+v\r\n", err, err))
@@ -159,7 +159,7 @@ func queueload(uri string, user int, trans int, result chan Response_Stat, clien
       fmt.Printf("%6d : Status:%s\n         Response time:%.4fsec ,Bytes:%v\n", count, s.status, s.response_time.Seconds(), s.amount_of_data)
       writeLog(fmt.Sprintf("%6d : Status:%s\r\n         Response time:%.4fsec ,Bytes:%v\r\n", count, s.status, s.response_time.Seconds(), s.amount_of_data))
 
-      if r.MatchString(s.status) == true {
+      if r.MatchString(s.status) {
         if(s.response_time.Seconds() > max_res) {
           max_res = s.response_time.Seconds()
         }
