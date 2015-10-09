@@ -34,7 +34,7 @@ func main() {
   flag.IntVar( transPtr, "r", 1, "number of repeatation per concurrent (short version for trans flag)")
   flag.Parse()
 
-  if *uriPtr == "" {
+  if *uriPtr == "" && *inputListPtr == "" {
     fmt.Println("Please specify target uri by using -uri=arg argument.")
     os.Exit(1)
   }
