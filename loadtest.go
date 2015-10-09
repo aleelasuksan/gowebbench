@@ -24,12 +24,17 @@ type Response_Stat struct {
 var f *os.File
 
 func main() {
-  uriPtr := flag.String("uri", "http://www.google.com/", "target uri for testing")
+  uriPtr := flag.String("uri", "", "target uri for testing")
   userPtr := flag.Int("user", 100, "number of concurrent user")
   transPtr := flag.Int("trans", 1, "number of transaction for user to do request")
   filePtr := flag.String("output", "load.log", "path or filename for text output file")
   inputListPtr := flag.String("input", "", "path or filename for input file which use to read an address for load testing")
   flag.Parse()
+
+  if *uriPtr == "" {
+    fmt.Println("Please specify target uri by using -uri=arg argument.")
+    os.Exit(1)
+  }
 
   runtime.GOMAXPROCS(runtime.NumCPU())
 

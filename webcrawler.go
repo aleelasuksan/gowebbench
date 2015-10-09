@@ -27,13 +27,18 @@ var f *os.File
 var limit int
 
 func main() {
-  uriPtr := flag.String("uri", "http://www.google.com/", "uri to start crawling")
+  uriPtr := flag.String("uri", "", "uri to start crawling")
   depthPtr := flag.Int("depth", 1, "depth to crawl")
   filePtr := flag.String("output", "crawl_result.log",
      "path or filename for text output file")
   limitPtr := flag.Float64("limit", -1,
      "limit number of crawled urls. (less than zero mean no limitation)")
   flag.Parse()
+
+  if *uriPtr == "" {
+    fmt.Println("Please specify target uri by using -uri=arg argument.")
+    os.Exit(1)
+  }
 
   if *depthPtr < 0 {
     fmt.Println("Depth is less than 0, Please specify depth equals 0 or greater.")
@@ -45,8 +50,7 @@ func main() {
   crawl(*uriPtr, *depthPtr, *limitPtr, *filePtr)
 }
 
-func crawl(add string, depth int, lim float64,
-  filename string ) {
+func crawl(add string, depth int, lim float64, filename string ) {
   address := parseURIwithoutFragment(add)
   if address == nil {
     fmt.Println("Given URL is invalid.")
