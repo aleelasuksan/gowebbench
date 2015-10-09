@@ -29,10 +29,9 @@ var limit int
 func main() {
   uriPtr := flag.String("uri", "", "uri to start crawling")
   depthPtr := flag.Int("depth", 1, "depth to crawl")
-  filePtr := flag.String("output", "crawl_result.log",
-     "path or filename for text output file")
-  limitPtr := flag.Float64("limit", -1,
-     "limit number of crawled urls. (less than zero mean no limitation)")
+  filePtr := flag.String("output", "crawl_result.log", "path or filename for text output file")
+  limitPtr := flag.Float64("limit", -1, "limit number of crawled urls. (less than zero mean no limitation)")
+  flag.IntVar(depthPtr, "d", 1, "depth to crawl")
   flag.Parse()
 
   if *uriPtr == "" {

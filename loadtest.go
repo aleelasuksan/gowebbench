@@ -30,6 +30,8 @@ func main() {
   transPtr := flag.Int("trans", 1, "number of transaction for user to do request")
   filePtr := flag.String("output", "load.log", "path or filename for text output file")
   inputListPtr := flag.String("input", "", "path or filename for input file which use to read an address for load testing")
+  flag.IntVar( userPtr, "c", 100, "number of concurrent (short version for user flag)")
+  flag.IntVar( transPtr, "r", 1, "number of repeatation per concurrent (short version for trans flag)")
   flag.Parse()
 
   if *uriPtr == "" {
