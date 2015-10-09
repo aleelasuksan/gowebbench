@@ -14,6 +14,7 @@ import "io"
 import "bufio"
 import "strings"
 import "strconv"
+import "net/url"
 
 type Response_Stat struct {
   status string
@@ -33,6 +34,12 @@ func main() {
 
   if *uriPtr == "" {
     fmt.Println("Please specify target uri by using -uri=arg argument.")
+    os.Exit(1)
+  }
+
+  _, err := url.Parse(*uriPtr)
+  if err != nil {
+    log.Printf("%T %+v\n", err, err)
     os.Exit(1)
   }
 
