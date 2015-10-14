@@ -29,7 +29,7 @@ func main() {
   userPtr := flag.Int("user", 1, "number of concurrent user")
   transPtr := flag.Int("trans", 1, "number of transaction for user to do request")
   filePtr := flag.String("output", "load.log", "path or filename for text output file")
-  inputListPtr := flag.String("input", "", "[Input mode] path or filename for input file which use to read an address for load testing (use only one input mode)")
+  inputListPtr := flag.String("input", "", "[Input mode] path or filename for input file (use only one input mode)")
   flag.Parse()
 
   if *uriPtr == "" && *inputListPtr == "" {
