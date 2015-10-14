@@ -25,17 +25,22 @@ type Response_Stat struct {
 var f *os.File
 
 func main() {
-  uriPtr := flag.String("uri", "", "target uri for testing")
-  userPtr := flag.Int("user", 100, "number of concurrent user")
+  uriPtr := flag.String("uri", "", "[Input mode] target uri for testing (use only one input mode)")
+  userPtr := flag.Int("user", 1, "number of concurrent user")
   transPtr := flag.Int("trans", 1, "number of transaction for user to do request")
   filePtr := flag.String("output", "load.log", "path or filename for text output file")
-  inputListPtr := flag.String("input", "", "path or filename for input file which use to read an address for load testing")
-  flag.IntVar( userPtr, "c", 100, "number of concurrent (short version for user flag)")
-  flag.IntVar( transPtr, "r", 1, "number of repeatation per concurrent (short version for trans flag)")
+  inputListPtr := flag.String("input", "", "[Input mode] path or filename for input file which use to read an address for load testing (use only one input mode)")
   flag.Parse()
 
   if *uriPtr == "" && *inputListPtr == "" {
     fmt.Println("Please specify target uri by using -uri=arg argument.")
+    fmt.Println("Or specify input file path.")
+    os.Exit(1)
+  }
+
+  if *uriPtr != "" && *inputListPtr != "" {
+    fmt.Println("Both input mode specify.")
+    fmt.Println("Use only one input mode. (-uri or -input flag)")
     os.Exit(1)
   }
 
@@ -47,7 +52,15 @@ func main() {
 
   runtime.GOMAXPROCS(runtime.NumCPU())
 
-  load(*uriPtr, *userPtr, *transPtr, *inputListPtr, *filePtr)
+  reader := bufio.NewReader(os.Stdin)
+  fmt.Println("Execution might interrupt target server's function, Are you SURE?")
+  fmt.Print("Confirm(y/n): ")
+  in, _ := reader.ReadString('\n')
+  in = strings.TrimSpace(in)
+  if in == "y" || in == "Y" {
+    fmt.Println("")
+    load(*uriPtr, *userPtr, *transPtr, *inputListPtr, *filePtr)
+  }
 }
 
 func load(uri string, user int, trans int, input string, filename string) {
