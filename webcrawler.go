@@ -174,7 +174,7 @@ func fetchURI(uri string, depth int) {
       }
       if visited[target] < 1 {
         wg.Add(1)
-        go fetchURI(target, depth-1, client)
+        go fetchURI(target, depth-1)
       }
     }
   }
@@ -198,13 +198,13 @@ func recur(uri string, depth int) {
   }
 
   if val, ok := visited[uri]; ok {
-    visited[uri] = int(val*1.5)
+    visited[uri] = int(float64(val)*1.5)
   } else {
-    var temp float = trans
+    var temp float64 = float64(trans)
     for i := 1 ; i < depth ; i++ {
       temp*=0.8
     }
-    if imagetype.MatchString(res.Headet.Get("Content-Type")) {
+    if imagetype.MatchString(res.Header.Get("Content-Type")) {
       temp/=3
     }
     visited[uri] = int(temp)
@@ -243,8 +243,8 @@ func recur(uri string, depth int) {
       if err != nil {
         continue
       }
-      if visited[target] < 1 {
-        recur(target, depth-1, client)
+      if visited[uri] < 1 {
+        recur(target, depth-1)
       }
     }
   }
