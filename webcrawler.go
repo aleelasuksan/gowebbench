@@ -16,6 +16,7 @@ import "runtime"
 import "time"
 import "strings"
 import "io/ioutil"
+import "sort"
 
 var visited = make(map[string]int)
 
@@ -117,9 +118,14 @@ func crawl(add string, depth int, limit int, filename string ) {
 
   fmt.Printf("Write Result to file %v ...\n", filename)
 
-  for key, value := range visited {
+  var urls []string
+  for k := range visited {
+    urls = append(urls, k)
+  }
+  sort.Strings(urls)
+  for _, k := range urls {
     count++
-    writeLog(fmt.Sprintf("%v %v\r\n", key, value))
+    writeLog(fmt.Sprintf("%v %v\r\n", k, visited[k]))
   }
   fmt.Printf("%v uri found.\n", count)
 }
