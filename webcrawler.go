@@ -89,10 +89,13 @@ func crawl(add string, depth int, limit int, filename string ) {
   fmt.Printf("%s Start crawling...\n", time.Now().Format(time.RFC850))
   writeLog(fmt.Sprintf("%s Start crawling...\r\n", time.Now().Format(time.RFC850)))
 
-  wg.Add(1)
-  go fetchURI(uri, depth)
-  time.Sleep(1 * time.Second)
-  wg.Wait()
+  // Async mode
+  // wg.Add(1)
+  // go fetchURIAsync(uri, depth)
+  // time.Sleep(1 * time.Second)
+  // wg.Wait()
+
+  fetchURIRecur(uri, depth)
 
   writeLog(fmt.Sprintf("%s Done Crawling!\r\n\r\n", time.Now().Format(time.RFC850)))
   fmt.Printf("%s Done Crawling!\n\n", time.Now().Format(time.RFC850))
@@ -119,7 +122,7 @@ func crawl(add string, depth int, limit int, filename string ) {
   fmt.Printf("%v uri found.\n", count)
 }
 
-func fetchURI(uri string, depth int) {
+func fetchURIAsync(uri string, depth int) {
   defer wg.Done()
 
   if limit > 0 && len(visited) > limit {
@@ -174,13 +177,13 @@ func fetchURI(uri string, depth int) {
       }
       if visited[target] < 1 {
         wg.Add(1)
-        go fetchURI(target, depth-1)
+        go fetchURIAsync(target, depth-1)
       }
     }
   }
 }
 
-func recur(uri string, depth int) {
+func fetchURIRecur(uri string, depth int) {
   if limit > 0 && len(visited) > limit {
     return
   }
@@ -243,8 +246,8 @@ func recur(uri string, depth int) {
       if err != nil {
         continue
       }
-      if visited[uri] < 1 {
-        recur(target, depth-1)
+      if _, ok := visited[target]; !ok {
+        fetchURIRecur(target, depth-1)
       }
     }
   }
