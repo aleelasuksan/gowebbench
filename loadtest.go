@@ -24,6 +24,8 @@ type Response_Stat struct {
 
 var f *os.File
 
+var client *http.Client
+
 func main() {
   uriPtr := flag.String("uri", "", "[Input mode] target uri for testing (use only one input mode)")
   userPtr := flag.Int("user", 1, "number of concurrent user")
@@ -82,12 +84,12 @@ func load(uri string, user int, trans int, input string, filename string) {
     MaxIdleConnsPerHost: user,
     ResponseHeaderTimeout: 60 * time.Second,
   }
-  client := &http.Client{
+  client = &http.Client{
     Transport: transport,
   }
 
   if input == "" {
-    queueload(uri, user, trans, result, client)
+    queueload(uri, user, trans, result)
   } else {
     infile, err := os.Open(input)
     if err != nil {
@@ -97,7 +99,7 @@ func load(uri string, user int, trans int, input string, filename string) {
     defer infile.Close()
     r := bufio.NewReader(infile)
     err = nil
-    var count int = 0
+    count := 0
     start := time.Now()
     for err != io.EOF {
       var s string
@@ -113,7 +115,7 @@ func load(uri string, user int, trans int, input string, filename string) {
           if err != nil {
             continue
           }
-          queueload(arr[0], user, tran, result, client)
+          queueload(arr[0], user, tran, result)
         }
 
         fmt.Println()
