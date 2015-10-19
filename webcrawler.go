@@ -33,6 +33,8 @@ var base string
 
 var trans = 100
 
+var client *http.Client
+
 func main() {
   uriPtr := flag.String("uri", "", "uri to start crawling (normally root web uri)")
   depthPtr := flag.Int("depth", 1, "depth to crawl")
@@ -79,7 +81,7 @@ func crawl(add string, depth int, limit int, filename string ) {
       InsecureSkipVerify: true,
     },
   }
-  client := &http.Client {
+  client = &http.Client {
     Transport: transport,
   }
   visited[uri] = trans
@@ -88,7 +90,7 @@ func crawl(add string, depth int, limit int, filename string ) {
   writeLog(fmt.Sprintf("%s Start crawling...\r\n", time.Now().Format(time.RFC850)))
 
   wg.Add(1)
-  go fetchURI(uri, depth, client)
+  go fetchURI(uri, depth)
   time.Sleep(1 * time.Second)
   wg.Wait()
 
@@ -117,7 +119,7 @@ func crawl(add string, depth int, limit int, filename string ) {
   fmt.Printf("%v uri found.\n", count)
 }
 
-func fetchURI(uri string, depth int, client *http.Client) {
+func fetchURI(uri string, depth int) {
   defer wg.Done()
 
   if limit > 0 && len(visited) > limit {
@@ -178,7 +180,7 @@ func fetchURI(uri string, depth int, client *http.Client) {
   }
 }
 
-func recur(uri string, depth int, client *http.Client) {
+func recur(uri string, depth int) {
   if limit > 0 && len(visited) > limit {
     return
   }
