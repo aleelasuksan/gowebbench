@@ -27,7 +27,7 @@ var f *os.File
 func main() {
   uriPtr := flag.String("uri", "", "[Input mode] target uri for testing (use only one input mode)")
   userPtr := flag.Int("user", 1, "number of concurrent user")
-  transPtr := flag.Int("trans", 1, "number of transaction for user to do request")
+  transPtr := flag.Int("trans", 1, "number of transaction for user to do request (for single target url only)")
   filePtr := flag.String("output", "load.log", "path or filename for text output file")
   inputListPtr := flag.String("input", "", "[Input mode] path or filename for input file (use only one input mode)")
   flag.Parse()
@@ -98,44 +98,22 @@ func load(uri string, user int, trans int, input string, filename string) {
     r := bufio.NewReader(infile)
     err = nil
     var count int = 0
-    reg, _ := regexp.Compile(".jpg|.png|.gif|.jpeg|.ico")
     start := time.Now()
     for err != io.EOF {
       var s string
       s, err = readLine(r)
       if err == nil && len(s) > 0 {
         arr := strings.Split(s, " ")
-        if len(arr) == 1 {
-          if reg.MatchString(s) {
-            trans_reduced := trans/3
-            if trans_reduced == 0 {
-              trans_reduced = 1
-            }
-            queueload(arr[0], user, trans_reduced, result, client)
-          } else {
-            queueload(arr[0], user, trans, result, client)
-          }
+        if len(arr) != 2 {
+          count--
+          fmt.Printf("%s have invalid format (doesn't specify transaction)\n", s)
+          writeLog(fmt.Sprintf("%s have invalid format (doesn't specify transaction)\r\n", s))
         } else {
-          trans_reduced := trans
-          depth, err := strconv.Atoi(arr[1])
+          tran, err := strconv.Atoi(arr[1])
           if err != nil {
             continue
           }
-          for i := 0 ; i < depth ; i++ {
-            trans_reduced = int(float64(trans_reduced)*0.8)
-          }
-          if trans_reduced == 0 {
-            trans_reduced = 1
-          }
-          if reg.MatchString(s) {
-            trans_reduced /= 3
-            if trans_reduced == 0 {
-              trans_reduced = 1
-            }
-            queueload(arr[0], user, trans_reduced, result, client)
-          } else {
-            queueload(arr[0], user, trans_reduced, result, client)
-          }
+          queueload(arr[0], user, tran, result, client)
         }
 
         fmt.Println()
@@ -146,13 +124,13 @@ func load(uri string, user int, trans int, input string, filename string) {
     stop := time.Now()
 
     fmt.Printf("Total time: %v\n", stop.Sub(start))
-    writeLog(fmt.Sprintf("Total time: %v\n", stop.Sub(start)))
+    writeLog(fmt.Sprintf("Total time: %v\r\n", stop.Sub(start)))
 
     fmt.Printf("%v urls tested.\n", count)
-    writeLog(fmt.Sprintf("%v urls tested.\n", count))
+    writeLog(fmt.Sprintf("%v urls tested.\r\n", count))
 
     fmt.Printf("%s DONE", time.Now())
-    writeLog(fmt.Sprintf("%s DONE", time.Now().Format(time.RFC850)))
+    writeLog(fmt.Sprintf("%s DONE\r\n", time.Now().Format(time.RFC850)))
   }
 }
 
