@@ -35,6 +35,8 @@ var trans = 100
 
 var client *http.Client
 
+var maxdepth int
+
 func main() {
   uriPtr := flag.String("uri", "", "uri to start crawling (normally root web uri)")
   depthPtr := flag.Int("depth", 1, "depth to crawl")
@@ -65,7 +67,7 @@ func crawl(add string, depth int, limit int, filename string ) {
   }
   base = address.Host
   uri := address.String()
-
+  maxdepth = depth
   logfile := "crawling.log"
   var err error
   if _, err := os.Stat(logfile); err == nil {
@@ -117,7 +119,7 @@ func crawl(add string, depth int, limit int, filename string ) {
 
   for key, value := range visited {
     count++
-    writeLog(fmt.Sprintf("%v %v\r\n", key, depth-value))
+    writeLog(fmt.Sprintf("%v %v\r\n", key, value))
   }
   fmt.Printf("%v uri found.\n", count)
 }
@@ -200,11 +202,11 @@ func fetchURIRecur(uri string, depth int) {
     return
   }
 
-  if val, ok := visited[uri]; ok {
-    visited[uri] = int(float64(val)*1.5)
+  if val, ok := visited[uri]; ok && depth != maxdepth {
+    visited[uri] = int(float64(val)*1.2)
   } else {
     var temp float64 = float64(trans)
-    for i := 1 ; i < depth ; i++ {
+    for i := maxdepth ; i > depth ; i-- {
       temp*=0.8
     }
     if imagetype.MatchString(res.Header.Get("Content-Type")) {
@@ -246,9 +248,7 @@ func fetchURIRecur(uri string, depth int) {
       if err != nil {
         continue
       }
-      if _, ok := visited[target]; !ok {
-        fetchURIRecur(target, depth-1)
-      }
+      fetchURIRecur(target, depth-1)
     }
   }
 }
