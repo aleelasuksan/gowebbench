@@ -82,7 +82,7 @@ func crawl(add string, depth int, limit int, filename string ) {
   client := &http.Client {
     Transport: transport,
   }
-  visited[uri] = 1
+  visited[uri] = trans
 
   fmt.Printf("%s Start crawling...\n", time.Now().Format(time.RFC850))
   writeLog(fmt.Sprintf("%s Start crawling...\r\n", time.Now().Format(time.RFC850)))
@@ -198,18 +198,14 @@ func recur(uri string, depth int, client *http.Client) {
   if val, ok := visited[uri]; ok {
     visited[uri] = int(val*1.5)
   } else {
-    if depth == 1 {
-      visited[uri] = trans
-    } else {
-      var temp float = trans
-      for i := 1 ; i < depth ; i++ {
-        temp*=0.8
-      }
-      if imagetype.MatchString(res.Headet.Get("Content-Type")) {
-        temp/=3
-      }
-      visited[uri] = int(temp)
+    var temp float = trans
+    for i := 1 ; i < depth ; i++ {
+      temp*=0.8
     }
+    if imagetype.MatchString(res.Headet.Get("Content-Type")) {
+      temp/=3
+    }
+    visited[uri] = int(temp)
   }
 
   writeLog(fmt.Sprintf("Fetch: %v %v\r\n%v, Content-Type: %v\r\n\r\n", uri, depth, res.Status, res.Header.Get("Content-Type")))
