@@ -27,6 +27,12 @@ var limit int
 
 var regtype = regexp.MustCompile("(i?)(image|html|javascript|css|jpeg|jpg|png|gif|woff|ttf|ico)")
 
+var imagetype = regexp.MustCompile("(i?)(image|jpeg|jpg|png|gif|woff|ttf|ico)")
+
+var base string
+
+var trans = 100
+
 func main() {
   uriPtr := flag.String("uri", "", "uri to start crawling (normally root web uri)")
   depthPtr := flag.Int("depth", 1, "depth to crawl")
@@ -55,7 +61,7 @@ func crawl(add string, depth int, limit int, filename string ) {
     fmt.Println("Given URL is invalid.")
     os.Exit(1)
   }
-  base, _ := regexp.Compile(strings.Replace(address.Host, ".", "\\.", -1))
+  base = address.Host
   uri := address.String()
 
   logfile := "crawling.log"
@@ -82,7 +88,7 @@ func crawl(add string, depth int, limit int, filename string ) {
   writeLog(fmt.Sprintf("%s Start crawling...\r\n", time.Now().Format(time.RFC850)))
 
   wg.Add(1)
-  go fetchURI(uri, depth, base, client)
+  go fetchURI(uri, depth, client)
   time.Sleep(1 * time.Second)
   wg.Wait()
 
@@ -111,7 +117,7 @@ func crawl(add string, depth int, limit int, filename string ) {
   fmt.Printf("%v uri found.\n", count)
 }
 
-func fetchURI(uri string, depth int, base *regexp.Regexp, client *http.Client) {
+func fetchURI(uri string, depth int, client *http.Client) {
   defer wg.Done()
 
   if limit > 0 && len(visited) > limit {
@@ -156,7 +162,7 @@ func fetchURI(uri string, depth int, base *regexp.Regexp, client *http.Client) {
     if absolutePath != "" {
       address := parseURIwithoutFragment(absolutePath)
       // if request uri host/domain doesn't match base host then ignore
-      if address == nil || !base.MatchString(address.Host) {
+      if address == nil || base != address.Host {
         continue
       }
       target := address.String()
@@ -166,7 +172,81 @@ func fetchURI(uri string, depth int, base *regexp.Regexp, client *http.Client) {
       }
       if visited[target] < 1 {
         wg.Add(1)
-        go fetchURI(target, depth-1, base, client)
+        go fetchURI(target, depth-1, client)
+      }
+    }
+  }
+}
+
+func recur(uri string, depth int, client *http.Client) {
+  if limit > 0 && len(visited) > limit {
+    return
+  }
+
+  res, err := client.Head(uri)
+  if err != nil {
+    log.Printf("Panic Head %v %v\n%T %+v\n", uri, depth, err, err)
+    writeLog(fmt.Sprintf("Panic Head %v %v\n%T %+v\r\n", uri, depth, err, err))
+    return
+  }
+  defer res.Body.Close()
+
+  if !regtype.MatchString(res.Header.Get("Content-Type")) {
+    return
+  }
+
+  if val, ok := visited[uri]; ok {
+    visited[uri] = int(val*1.5)
+  } else {
+    if depth == 1 {
+      visited[uri] = trans
+    } else {
+      var temp float = trans
+      for i := 1 ; i < depth ; i++ {
+        temp*=0.8
+      }
+      if imagetype.MatchString(res.Headet.Get("Content-Type")) {
+        temp/=3
+      }
+      visited[uri] = int(temp)
+    }
+  }
+
+  writeLog(fmt.Sprintf("Fetch: %v %v\r\n%v, Content-Type: %v\r\n\r\n", uri, depth, res.Status, res.Header.Get("Content-Type")))
+  fmt.Printf("Fetched: %v %v\n%v, Content-Type: %v\n\n", uri, depth, res.Status, res.Header.Get("Content-Type"))
+
+  if depth == 0 {
+    return
+  }
+
+  res, err = client.Get(uri)
+  if err != nil {
+    log.Printf("Panic Get %v %v\n%T %+v\n", uri, depth, err, err)
+    writeLog(fmt.Sprintf("Panic Get %v %v\r\n%T %+v\r\n", uri, depth, err, err))
+    return
+  }
+  defer res.Body.Close()
+
+  if !strings.Contains(res.Header.Get("Content-Type"), "html") {
+    return
+  }
+
+  links := fetchHyperLink(res.Body)
+  for _, link := range links {
+    absolutePath := normalizeURL(link, uri)
+    if absolutePath != "" {
+      address := parseURIwithoutFragment(absolutePath)
+      // if request uri host/domain doesn't match base host then ignore
+      if address == nil || base != address.Host {
+        continue
+      }
+      target := address.String()
+      target, err = url.QueryUnescape(target)
+      if err != nil {
+        continue
+      }
+      if visited[target] < 1 {
+        recur(target, depth-1, client)
       }
     }
   }
