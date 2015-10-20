@@ -174,8 +174,8 @@ func queueload(uri string, user int, trans int, result chan Response_Stat) {
     select {
     case s := <-result:
 
-      fmt.Printf("%6d : Status:%s\n         Response time:%.4fsec ,Bytes:%v\n", count, s.status, s.response_time.Seconds(), s.amount_of_data)
-      writeLog(fmt.Sprintf("%6d : Status:%s\r\n         Response time:%.4fsec ,Bytes:%v\r\n", count, s.status, s.response_time.Seconds(), s.amount_of_data))
+      fmt.Printf("%8d : Status:%s\n           Response time:%.4fsec ,Bytes:%v\n", count, s.status, s.response_time.Seconds(), s.amount_of_data)
+      writeLog(fmt.Sprintf("%8d : Status:%s\r\n           Response time:%.4fsec ,Bytes:%v\r\n", count, s.status, s.response_time.Seconds(), s.amount_of_data))
 
       if r.MatchString(s.status) {
         if(s.response_time.Seconds() > max_res) {

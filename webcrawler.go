@@ -20,7 +20,7 @@ import "sort"
 
 var visited = make(map[string]int)
 
-var wg sync.WaitGroup
+// var wg sync.WaitGroup
 
 var f *os.File
 
@@ -34,7 +34,7 @@ var base string
 
 var trans = 100
 
-var max_trans = 100000
+var max_trans = 10000
 
 var client *http.Client
 
@@ -209,7 +209,7 @@ func fetchURIRecur(uri string, depth int) {
     return
   }
 
-  if val, ok := visited[uri]; ok && depth != maxdepth {
+  if val, ok := visited[uri]; ok {
     if val < max_trans {
       inc := int(float64(val) * 1.2)
       if( inc > max_trans ) {
