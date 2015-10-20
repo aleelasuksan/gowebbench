@@ -82,7 +82,7 @@ func load(uri string, user int, trans int, input string, filename string) {
   defer close(result)
 
   transport = &http.Transport{
-    MaxIdleConnsPerHost: user,
+    MaxIdleConnsPerHost: 1000,
     ResponseHeaderTimeout: 60 * time.Second,
   }
   client = &http.Client{
@@ -210,8 +210,8 @@ func queueload(uri string, user int, trans int, result chan Response_Stat) {
   fmt.Println("Total transaction:", user * trans)
   writeLog(fmt.Sprintf("Total transaction: %v\r\n", user * trans))
 
-  fmt.Println("Elapsed time:", duration)
-  writeLog(fmt.Sprintf("Elapsed time: %v\r\n milliseconds", duration))
+  fmt.Println("Elapsed time:", duration, "milliseconds")
+  writeLog(fmt.Sprintf("Elapsed time: %vmilliseconds\r\n", duration))
 
   fmt.Println("Success transaction:", success)
   writeLog(fmt.Sprintf("Success transaction: %v\r\n", success))
@@ -225,17 +225,17 @@ func queueload(uri string, user int, trans int, result chan Response_Stat) {
   fmt.Println("Transaction rate:", float64( count ) / float64( duration ), "trans/millisec")
   writeLog(fmt.Sprintf("Transaction rate: %v trans/millisec\r\n", float64( count ) / float64( duration )))
 
-  fmt.Println("Maximum response time:", max_res, "s")
+  fmt.Printf("Maximum response time: %6dmilliseconds\n", max_res)
   writeLog(fmt.Sprintf("Maximum response time: %v milliseconds\r\n", max_res ))
 
-  fmt.Println("Minimum response time:", min_res, "s")
+  fmt.Printf("Minimum response time: %6dmilliseconds\n", min_res)
   writeLog(fmt.Sprintf("Minimum response time: %v milliseconds\r\n", min_res ))
 
   fmt.Println("Average response time:", float64( sum_res ) / float64(success), "milliseconds")
   writeLog(fmt.Sprintf("Average response time: %v milliseconds\r\n", float64( sum_res ) / float64(success)))
 
-  fmt.Println("=============== END ================\n")
-  writeLog("=============== END ================\r\n\r\n")
+  fmt.Println("================= END ==================\n")
+  writeLog("================= END ==================\r\n\r\n")
 }
 
 func sendRequest(uri string, n int, result chan Response_Stat) {
