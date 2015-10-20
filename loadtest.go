@@ -80,7 +80,6 @@ func load(uri string, user int, trans int, input string, filename string) {
   defer close(result)
 
   transport := &http.Transport{
-    DisableKeepAlives: false,
     MaxIdleConnsPerHost: user,
     ResponseHeaderTimeout: 60 * time.Second,
   }
@@ -136,10 +135,10 @@ func load(uri string, user int, trans int, input string, filename string) {
   }
 }
 
-func queueload(uri string, user int, trans int, result chan Response_Stat, client *http.Client) {
+func queueload(uri string, user int, trans int, result chan Response_Stat) {
   start := time.Now()
   for i := 0 ; i < user ; i++ {
-    go sendRequest(uri, trans, result, client)
+    go sendRequest(uri, trans, result)
   }
 
   fmt.Printf("%s Start test %s...\n", time.Now().Format(time.RFC850), uri)
@@ -227,7 +226,7 @@ func queueload(uri string, user int, trans int, result chan Response_Stat, clien
   writeLog(fmt.Sprintf("Average response time: %v sec\r\n", sum_res / float64(success)))
 }
 
-func sendRequest(uri string, n int, result chan Response_Stat, client *http.Client) {
+func sendRequest(uri string, n int, result chan Response_Stat) {
   for i := 0 ; i < n ; i++ {
     start := time.Now()
     res, err := client.Get(uri)
