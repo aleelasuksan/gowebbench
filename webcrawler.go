@@ -20,7 +20,7 @@ import "sort"
 
 var visited = make(map[string]int)
 
-// var wg sync.WaitGroup
+var wg sync.WaitGroup
 
 var f *os.File
 
