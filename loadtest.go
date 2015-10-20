@@ -26,6 +26,8 @@ var f *os.File
 
 var client *http.Client
 
+var transport *http.Transport
+
 func main() {
   uriPtr := flag.String("uri", "", "[Input mode] target uri for testing (use only one input mode)")
   userPtr := flag.Int("user", 1, "number of concurrent user")
@@ -79,7 +81,7 @@ func load(uri string, user int, trans int, input string, filename string) {
   result := make(chan Response_Stat, user)
   defer close(result)
 
-  transport := &http.Transport{
+  transport = &http.Transport{
     MaxIdleConnsPerHost: user,
     ResponseHeaderTimeout: 60 * time.Second,
   }
@@ -144,6 +146,7 @@ func load(uri string, user int, trans int, input string, filename string) {
 func queueload(uri string, user int, trans int, result chan Response_Stat) {
   start := time.Now()
   for i := 0 ; i < user ; i++ {
+    transport.CloseIdleConnections()
     go sendRequest(uri, trans, result)
   }
 
