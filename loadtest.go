@@ -124,13 +124,13 @@ func load(uri string, user int, trans int, input string, filename string) {
         count++
       }
     }
-    stop := time.Now()
+    duration := time.Since(start).Nanoseconds() / time.Millisecond.Nanoseconds()
 
     fmt.Println("=============== TOTAL SUMMARY ================")
     writeLog("=============== TOTAL SUMMARY ================\r\n")
 
-    fmt.Printf("Total time: %v\n", stop.Sub(start))
-    writeLog(fmt.Sprintf("Total time: %v\r\n", stop.Sub(start)))
+    fmt.Printf("Total time: %v milliseconds\n", duration)
+    writeLog(fmt.Sprintf("Total time: %v milliseconds\r\n", duration))
 
     fmt.Printf("%v urls tested.\n", count)
     writeLog(fmt.Sprintf("%v urls tested.\r\n", count))
@@ -146,7 +146,6 @@ func load(uri string, user int, trans int, input string, filename string) {
 func queueload(uri string, user int, trans int, result chan Response_Stat) {
   start := time.Now()
   for i := 0 ; i < user ; i++ {
-    transport.CloseIdleConnections()
     go sendRequest(uri, trans, result)
   }
 
@@ -155,10 +154,10 @@ func queueload(uri string, user int, trans int, result chan Response_Stat) {
 
   count := 0
   success := 0
-  var min_res float64
-  var max_res float64
-  var sum_res float64
-  min_res = 100
+  var min_res int64
+  var max_res int64
+  var sum_res int64
+  min_res = 100000
   max_res = 0
   sum_res = 0
   total_data := 0
@@ -174,17 +173,18 @@ func queueload(uri string, user int, trans int, result chan Response_Stat) {
     select {
     case s := <-result:
 
-      fmt.Printf("%8d : Status:%s\n           Response time:%.4fsec ,Bytes:%v\n", count, s.status, s.response_time.Seconds(), s.amount_of_data)
-      writeLog(fmt.Sprintf("%8d : Status:%s\r\n           Response time:%.4fsec ,Bytes:%v\r\n", count, s.status, s.response_time.Seconds(), s.amount_of_data))
+      res_time := s.response_time.Nanoseconds() / time.Millisecond.Nanoseconds()
+      fmt.Printf("%8d : Status:%s\n           Response time: %7dms ,Bytes:%v\n", count, s.status, res_time, s.amount_of_data)
+      writeLog(fmt.Sprintf("%8d : Status:%s\r\n           Response time: %7dms ,Bytes:%v\r\n", count, s.status, res_time, s.amount_of_data))
 
       if r.MatchString(s.status) {
-        if(s.response_time.Seconds() > max_res) {
-          max_res = s.response_time.Seconds()
+        if(res_time > max_res) {
+          max_res = res_time
         }
-        if(s.response_time.Seconds() < min_res) {
-          min_res = s.response_time.Seconds()
+        if(res_time < min_res) {
+          min_res = res_time
         }
-        sum_res += s.response_time.Seconds()
+        sum_res += res_time
         if s.amount_of_data > 0 {
           total_data += s.amount_of_data
         }
@@ -193,7 +193,7 @@ func queueload(uri string, user int, trans int, result chan Response_Stat) {
     }
     count++
   }
-  end := time.Now()
+  duration := time.Since(start).Nanoseconds() / time.Millisecond.Nanoseconds()
 
   fmt.Println("=============== SUMMARY ================")
   writeLog("=============== SUMMARY ================\r\n")
@@ -210,8 +210,8 @@ func queueload(uri string, user int, trans int, result chan Response_Stat) {
   fmt.Println("Total transaction:", user * trans)
   writeLog(fmt.Sprintf("Total transaction: %v\r\n", user * trans))
 
-  fmt.Println("Elapsed time:", end.Sub( start ))
-  writeLog(fmt.Sprintf("Elapsed time: %v\r\n", end.Sub( start )))
+  fmt.Println("Elapsed time:", duration)
+  writeLog(fmt.Sprintf("Elapsed time: %v\r\n milliseconds", duration))
 
   fmt.Println("Success transaction:", success)
   writeLog(fmt.Sprintf("Success transaction: %v\r\n", success))
@@ -222,17 +222,17 @@ func queueload(uri string, user int, trans int, result chan Response_Stat) {
   fmt.Println("Total response data:", total_data)
   writeLog(fmt.Sprintf("Total response data: %v \r\n", total_data))
 
-  fmt.Println("Transaction rate:", float64( count ) / end.Sub( start ).Seconds(), "trans/sec")
-  writeLog(fmt.Sprintf("Transaction rate: %v trans/sec\r\n", float64( count ) / end.Sub( start ).Seconds()))
+  fmt.Println("Transaction rate:", float64( count ) / float64( duration ), "trans/millisec")
+  writeLog(fmt.Sprintf("Transaction rate: %v trans/millisec\r\n", float64( count ) / float64( duration )))
 
   fmt.Println("Maximum response time:", max_res, "s")
-  writeLog(fmt.Sprintf("Maximum response time: %v sec\r\n", max_res))
+  writeLog(fmt.Sprintf("Maximum response time: %v milliseconds\r\n", max_res ))
 
   fmt.Println("Minimum response time:", min_res, "s")
-  writeLog(fmt.Sprintf("Minimum response time: %v sec\r\n", min_res))
+  writeLog(fmt.Sprintf("Minimum response time: %v milliseconds\r\n", min_res ))
 
-  fmt.Println("Average response time:", sum_res / float64(success), "s")
-  writeLog(fmt.Sprintf("Average response time: %v sec\r\n", sum_res / float64(success)))
+  fmt.Println("Average response time:", float64( sum_res ) / float64(success), "milliseconds")
+  writeLog(fmt.Sprintf("Average response time: %v milliseconds\r\n", float64( sum_res ) / float64(success)))
 
   fmt.Println("=============== END ================\n")
   writeLog("=============== END ================\r\n\r\n")
@@ -242,8 +242,7 @@ func sendRequest(uri string, n int, result chan Response_Stat) {
   for i := 0 ; i < n ; i++ {
     start := time.Now()
     res, err := client.Get(uri)
-    end := time.Now()
-    response_time := end.Sub(start)
+    response_time := time.Since(start)
     if err != nil {
       result <- Response_Stat{ fmt.Sprintf("Response Error%T %+v", err, err), response_time, 0 }
     } else {
@@ -252,6 +251,7 @@ func sendRequest(uri string, n int, result chan Response_Stat) {
       ioutil.ReadAll(res.Body)
       res.Body.Close()
     }
+    transport.CloseIdleConnections()
   }
 }
 
