@@ -124,6 +124,9 @@ func load(uri string, user int, trans int, input string, filename string) {
     }
     stop := time.Now()
 
+    fmt.Println("=============== TOTAL SUMMARY ================")
+    writeLog("=============== TOTAL SUMMARY ================\r\n")
+
     fmt.Printf("Total time: %v\n", stop.Sub(start))
     writeLog(fmt.Sprintf("Total time: %v\r\n", stop.Sub(start)))
 
@@ -132,6 +135,9 @@ func load(uri string, user int, trans int, input string, filename string) {
 
     fmt.Printf("%s DONE", time.Now())
     writeLog(fmt.Sprintf("%s DONE\r\n", time.Now().Format(time.RFC850)))
+
+    fmt.Println("=============== END TOTAL SUMMARY ================")
+    writeLog("=============== END TOTAL SUMMARY ================\r\n")
   }
 }
 
@@ -224,6 +230,9 @@ func queueload(uri string, user int, trans int, result chan Response_Stat) {
 
   fmt.Println("Average response time:", sum_res / float64(success), "s")
   writeLog(fmt.Sprintf("Average response time: %v sec\r\n", sum_res / float64(success)))
+
+  fmt.Println("=============== END ================\n")
+  writeLog("=============== END ================\r\n\r\n")
 }
 
 func sendRequest(uri string, n int, result chan Response_Stat) {
