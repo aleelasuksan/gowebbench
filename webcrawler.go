@@ -34,6 +34,8 @@ var base string
 
 var trans = 100
 
+var max_trans = 100000
+
 var client *http.Client
 
 var maxdepth int
@@ -209,7 +211,15 @@ func fetchURIRecur(uri string, depth int) {
   }
 
   if val, ok := visited[uri]; ok && depth != maxdepth {
-    visited[uri] = int(float64(val)*1.2)
+    if val < max_trans {
+      inc := int(float64(val) * 1.2)
+      if( inc > max_trans ) {
+        visited[uri] = max_trans
+      } else {
+        visited[uri] = inc
+      }
+    }
+
   } else {
     var temp float64 = float64(trans)
     for i := maxdepth ; i > depth ; i-- {
