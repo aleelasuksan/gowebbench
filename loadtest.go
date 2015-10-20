@@ -82,7 +82,7 @@ func load(uri string, user int, trans int, input string, filename string) {
   defer close(result)
 
   transport = &http.Transport{
-    MaxIdleConnsPerHost: 1000,
+    MaxIdleConnsPerHost: user*2,
     ResponseHeaderTimeout: 60 * time.Second,
   }
   client = &http.Client{
@@ -225,14 +225,14 @@ func queueload(uri string, user int, trans int, result chan Response_Stat) {
   fmt.Println("Transaction rate:", float64( count ) / float64( duration ), "trans/millisec")
   writeLog(fmt.Sprintf("Transaction rate: %v trans/millisec\r\n", float64( count ) / float64( duration )))
 
-  fmt.Printf("Maximum response time: %6dmilliseconds\n", max_res)
+  fmt.Printf("Maximum response time: %6d milliseconds\n", max_res)
   writeLog(fmt.Sprintf("Maximum response time: %v milliseconds\r\n", max_res ))
 
-  fmt.Printf("Minimum response time: %6dmilliseconds\n", min_res)
+  fmt.Printf("Minimum response time: %6d milliseconds\n", min_res)
   writeLog(fmt.Sprintf("Minimum response time: %v milliseconds\r\n", min_res ))
 
-  fmt.Println("Average response time:", float64( sum_res ) / float64(success), "milliseconds")
-  writeLog(fmt.Sprintf("Average response time: %v milliseconds\r\n", float64( sum_res ) / float64(success)))
+  fmt.Printf("Average response time: %.4f milliseconds\n", float64( sum_res ) / float64(success))
+  writeLog(fmt.Sprintf("Average response time: %.4f milliseconds\r\n", float64( sum_res ) / float64(success)))
 
   fmt.Println("================= END ==================\n")
   writeLog("================= END ==================\r\n\r\n")
