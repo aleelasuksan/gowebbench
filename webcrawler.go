@@ -89,7 +89,6 @@ func crawl(add string, depth int, limit int, filename string ) {
   client = &http.Client {
     Transport: transport,
   }
-  visited[uri] = trans
 
   fmt.Printf("%s Start crawling...\n", time.Now().Format(time.RFC850))
   writeLog(fmt.Sprintf("%s Start crawling...\r\n", time.Now().Format(time.RFC850)))
