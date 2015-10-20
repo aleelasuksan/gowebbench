@@ -83,7 +83,7 @@ func load(uri string, user int, trans int, input string, filename string) {
 
   transport = &http.Transport{
     MaxIdleConnsPerHost: user,
-    ResponseHeaderTimeout: 30 * time.Second
+    ResponseHeaderTimeout: 30 * time.Second,
   }
 
   go func() {
