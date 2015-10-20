@@ -15,6 +15,8 @@ import "bufio"
 import "strings"
 import "strconv"
 import "net/url"
+import "net"
+import "errors"
 
 type Response_Stat struct {
   status string
@@ -83,8 +85,19 @@ func load(uri string, user int, trans int, input string, filename string) {
 
   transport = &http.Transport{
     MaxIdleConnsPerHost: user*2,
-    ResponseHeaderTimeout: 60 * time.Second,
+    // ResponseHeaderTimeout: 60 * time.Second
+    Dial: func(network, addr string) (net.Conn, error) {
+      return NewTimeoutConnDial(network, addr, 30 * time.Second)
+    },
   }
+
+  go func() {
+    for {
+      time.Sleep(30 * time.Second)
+      transport.CloseIdleConnections()
+    }
+  }()
+
   client = &http.Client{
     Transport: transport,
   }
@@ -135,7 +148,7 @@ func load(uri string, user int, trans int, input string, filename string) {
     fmt.Printf("%v urls tested.\n", count)
     writeLog(fmt.Sprintf("%v urls tested.\r\n", count))
 
-    fmt.Printf("%s DONE", time.Now())
+    fmt.Printf("%s DONE\n", time.Now())
     writeLog(fmt.Sprintf("%s DONE\r\n", time.Now().Format(time.RFC850)))
 
     fmt.Println("=============== END TOTAL SUMMARY ================")
@@ -246,12 +259,12 @@ func sendRequest(uri string, n int, result chan Response_Stat) {
     if err != nil {
       result <- Response_Stat{ fmt.Sprintf("Response Error%T %+v", err, err), response_time, 0 }
     } else {
+      res.Close = true
       l := int(res.ContentLength)
       result <- Response_Stat{res.Status, response_time, l}
       ioutil.ReadAll(res.Body)
       res.Body.Close()
     }
-    transport.CloseIdleConnections()
   }
 }
 
@@ -280,4 +293,66 @@ func readLine(reader *bufio.Reader) (string, error) {
     text = append(text, line ...)
   }
   return string(text), err
+}
+
+type TimeoutConn struct {
+    net.Conn
+    readTimeout, writeTimeout time.Duration
+}
+
+var invalidOperationError = errors.New("TimeoutConn does not support or allow .SetDeadline operations")
+
+func NewTimeoutConn(conn net.Conn, ioTimeout time.Duration) (*TimeoutConn, error) {
+    return NewTimeoutConnReadWriteTO(conn, ioTimeout, ioTimeout)
+}
+
+func NewTimeoutConnReadWriteTO(conn net.Conn, readTimeout, writeTimeout time.Duration) (*TimeoutConn, error) {
+    this := &TimeoutConn{
+        Conn:         conn,
+        readTimeout:  readTimeout,
+        writeTimeout: writeTimeout,
+    }
+    now := time.Now()
+    err := this.Conn.SetReadDeadline(now.Add(this.readTimeout))
+    if err != nil {
+        return nil, err
+    }
+    err = this.Conn.SetWriteDeadline(now.Add(this.writeTimeout))
+    if err != nil {
+        return nil, err
+    }
+    return this, nil
+}
+
+func NewTimeoutConnDial(network, addr string, ioTimeout time.Duration) (net.Conn, error) {
+    conn, err := net.DialTimeout(network, addr, ioTimeout)
+    if err != nil {
+        return nil, err
+    }
+    if conn, err = NewTimeoutConn(conn, ioTimeout); err != nil {
+        return nil, err
+    }
+    return conn, nil
+}
+
+func (this *TimeoutConn) Read(data []byte) (int, error) {
+    this.Conn.SetReadDeadline(time.Now().Add(this.readTimeout))
+    return this.Conn.Read(data)
+}
+
+func (this *TimeoutConn) Write(data []byte) (int, error) {
+    this.Conn.SetWriteDeadline(time.Now().Add(this.writeTimeout))
+    return this.Conn.Write(data)
+}
+
+func (this *TimeoutConn) SetDeadline(time time.Time) error {
+    return invalidOperationError
+}
+
+func (this *TimeoutConn) SetReadDeadline(time time.Time) error {
+    return invalidOperationError
+}
+
+func (this *TimeoutConn) SetWriteDeadline(time time.Time) error {
+    return invalidOperationError
 }
