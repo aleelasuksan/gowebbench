@@ -209,6 +209,9 @@ func fetchURIRecur(uri string, depth int) {
     return
   }
 
+  writeLog(fmt.Sprintf("Fetch: %v %v\r\n%v, Content-Type: %v\r\n\r\n", uri, depth, res.Status, res.Header.Get("Content-Type")))
+  fmt.Printf("Fetched: %v %v\n%v, Content-Type: %v\n\n", uri, depth, res.Status, res.Header.Get("Content-Type"))
+
   if val, ok := visited[uri]; ok {
     if val < max_trans {
       inc := int(float64(val) * 1.2)
@@ -218,7 +221,7 @@ func fetchURIRecur(uri string, depth int) {
         visited[uri] = inc
       }
     }
-
+    return
   } else {
     var temp float64 = float64(trans)
     for i := maxdepth ; i > depth ; i-- {
@@ -229,9 +232,6 @@ func fetchURIRecur(uri string, depth int) {
     }
     visited[uri] = int(temp)
   }
-
-  writeLog(fmt.Sprintf("Fetch: %v %v\r\n%v, Content-Type: %v\r\n\r\n", uri, depth, res.Status, res.Header.Get("Content-Type")))
-  fmt.Printf("Fetched: %v %v\n%v, Content-Type: %v\n\n", uri, depth, res.Status, res.Header.Get("Content-Type"))
 
   if depth == 0 {
     return
